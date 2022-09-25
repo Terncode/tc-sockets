@@ -1,10 +1,10 @@
-export * from './interfaces';
-export * from './server';
-export { createClientSocket, ClientErrorHandler } from './clientSocket';
-export { createServerRaw, createServer, createServerHost } from './serverSocket';
-export { createClientOptions } from './serverUtils';
-export { Server, ClientState, ServerHost, ServerOptions } from './serverInterfaces';
-export * from './method';
-export * from './serverMethod';
+export * from './common/interfaces';
+export * from './server/server';
+export { createClientSocket, ClientErrorHandler } from './client/clientSocket';
+export { createServerRaw, createServer, createServerHost } from './server/serverSocket';
+export { createClientOptions } from './server/serverUtils';
+export { Server, ClientState, ServerHost, ServerOptions } from './server/serverInterfaces';
+export * from './common/method';
+export * from './server/serverMethod';
 export * from './packet/binaryReader';
 export * from './packet/binaryWriter';

@@ -2,10 +2,10 @@ import { IncomingMessage } from 'http';
 import { parse as parseUrl } from 'url';
 import * as ws from 'ws';
 import { InternalServer, ServerOptions, Token } from './serverInterfaces';
-import { parseRateLimit, isBinaryOnlyPacket } from './utils';
+import { parseRateLimit, isBinaryOnlyPacket } from '../common/utils';
 import { OriginalRequest, ErrorHandler } from './server';
-import { getMethods } from './method';
-import { MethodDef, MethodOptions, ClientOptions, RateLimitDef, RateLimit } from './interfaces';
+import { getMethods } from '../common/method';
+import { MethodDef, MethodOptions, ClientOptions, RateLimitDef, RateLimit } from '../common/interfaces';
 import { getSocketMetadata } from './serverMethod';
 
 const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_';

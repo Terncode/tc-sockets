@@ -1,4 +1,4 @@
-import { encodeStringTo, stringLengthInBytes } from '../utf8';
+import { encodeStringTo, stringLengthInBytes } from '../common/utf8';
 import { Type, Special, NumberType } from './packetCommon';
 
 export interface BinaryWriter {

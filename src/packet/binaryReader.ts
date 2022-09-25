@@ -1,4 +1,4 @@
-import { decodeString } from '../utf8';
+import { decodeString } from '../common/utf8';
 import { Special, Type, NumberType } from './packetCommon';
 
 export interface BinaryReader {

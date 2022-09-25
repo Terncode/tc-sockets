@@ -1,7 +1,7 @@
 import './common';
 import { expect } from 'chai';
-import { Bin } from '../interfaces';
-import { isValid } from '../validate';
+import { Bin } from '../common/interfaces';
+import { isValid } from '../common/validate';
 
 type Case = [any, boolean];
 

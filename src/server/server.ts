@@ -1,4 +1,4 @@
-import { SocketClient } from './interfaces';
+import { SocketClient } from '../common/interfaces';
 
 export interface OriginalRequest {
 	headers: any;

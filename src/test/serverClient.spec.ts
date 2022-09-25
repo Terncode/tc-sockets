@@ -4,13 +4,13 @@ import * as WebSocket from 'ws';
 import { WebSocketServer as ClusterWsServer } from '@encharm/cws';
 import { expect } from 'chai';
 import { assert, stub, spy, SinonSpy } from 'sinon';
-import { Bin, ClientOptions, SocketService } from '../interfaces';
+import { Bin, ClientOptions, SocketService } from '../common/interfaces';
 import {
 	Socket, Method, ClientExtensions, Server as ServerController,
 	SocketClient, SocketServer, ErrorHandler, createClientSocket
 } from '../index';
-import { ServerHost, ServerOptions } from '../serverInterfaces';
-import { createServerHost } from '../serverSocket';
+import { ServerHost, ServerOptions } from '../server/serverInterfaces';
+import { createServerHost } from '../server/serverSocket';
 
 const apply = (f: () => void) => f();
 

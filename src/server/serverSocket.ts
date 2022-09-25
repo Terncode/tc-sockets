@@ -1,10 +1,10 @@
 import { Server as HttpServer, IncomingMessage } from 'http';
 import { Socket } from 'net';
 import * as ws from 'ws';
-import { ClientOptions, getNames, SocketServer, Logger } from './interfaces';
-import { getLength, cloneDeep, checkRateLimit2 } from './utils';
+import { ClientOptions, getNames, SocketServer, Logger } from '../common/interfaces';
+import { getLength, cloneDeep, checkRateLimit2 } from '../common/utils';
 import { ErrorHandler, OriginalRequest } from './server';
-import { MessageType, Send, createPacketHandler, HandleResult, HandlerOptions } from './packet/packetHandler';
+import { MessageType, Send, createPacketHandler, HandleResult, HandlerOptions } from '../packet/packetHandler';
 import {
 	Server, ClientState, InternalServer, GlobalConfig, ServerHost, CreateServerMethod, CreateServer, ServerOptions
 } from './serverInterfaces';
@@ -12,7 +12,7 @@ import {
 	hasToken, createToken, getToken, getTokenFromClient, returnTrue, createOriginalRequest, defaultErrorHandler,
 	createServerOptions, optionsWithDefaults, toClientOptions, getQuery, callWithErrorHandling, parseRateLimitDef,
 } from './serverUtils';
-import { BinaryReader, createBinaryReaderFromBuffer, getBinaryReaderBuffer } from './packet/binaryReader';
+import { BinaryReader, createBinaryReaderFromBuffer, getBinaryReaderBuffer } from '../packet/binaryReader';
 
 export function createServer<TServer, TClient>(
 	httpServer: HttpServer | undefined,

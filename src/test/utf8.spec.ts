@@ -1,6 +1,6 @@
 import './common';
 import { expect } from 'chai';
-import { encodeStringTo, decodeString, stringLengthInBytes } from '../utf8';
+import { encodeStringTo, decodeString, stringLengthInBytes } from '../common/utf8';
 
 describe('utf8', () => {
 	describe('encodeString()', () => {

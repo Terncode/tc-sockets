@@ -1,7 +1,7 @@
 import './common';
 import { expect } from 'chai';
 import { spy, assert } from 'sinon';
-import { Bin, MethodDef } from '../interfaces';
+import { Bin, MethodDef } from '../common/interfaces';
 import { createPacketHandler } from '../packet/packetHandler';
 import { createBinaryReader } from '../packet/binaryReader';
 

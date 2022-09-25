@@ -1,7 +1,7 @@
-import { ClientOptions, SocketServer, Logger, MethodDef, CommonOptions, OnSend, OnRecv, RateLimitDef } from './interfaces';
+import { ClientOptions, SocketServer, Logger, MethodDef, CommonOptions, OnSend, OnRecv, RateLimitDef } from '../common/interfaces';
 import { SocketServerClient, ErrorHandler } from './server';
 import { IncomingMessage } from 'http';
-import { Send, PacketHandler } from './packet/packetHandler';
+import { Send, PacketHandler } from '../packet/packetHandler';
 
 export interface Token {
 	id: string;

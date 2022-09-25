@@ -1,6 +1,6 @@
 import './common';
 import { expect } from 'chai';
-import { randomString } from '../serverUtils';
+import { randomString } from '../server/serverUtils';
 
 describe('serverUtils', () => {
 	describe('randomString()', () => {

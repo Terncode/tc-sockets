@@ -5,7 +5,7 @@ import { MessageType } from '../packet/packetHandler';
 import {
 	ClientOptions, SocketClient, SocketServer, SocketService, ClientErrorHandler, createClientSocket
 } from '../index';
-import { cloneDeep } from '../utils';
+import { cloneDeep } from '../common/utils';
 
 let lastWebSocket: MockWebSocket;
 

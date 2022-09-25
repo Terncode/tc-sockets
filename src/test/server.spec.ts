@@ -9,9 +9,9 @@ import {
 } from '../index';
 import { MessageType } from '../packet/packetHandler';
 import { MockWebSocket, MockWebSocketServer, getLastServer } from './wsMock';
-import { createServerHost } from '../serverSocket';
-import { randomString } from '../serverUtils';
-import { ServerOptions } from '../serverInterfaces';
+import { createServerHost } from '../server/serverSocket';
+import { randomString } from '../server/serverUtils';
+import { ServerOptions } from '../server/serverInterfaces';
 
 @Socket({})
 class Server1 {

@@ -1,5 +1,5 @@
-import { FuncList, Logger, getNames, getIgnore, MethodDef, OnSend, OnRecv, Bin, RemoteOptions, getMethodsDefArray } from '../interfaces';
-import { isBinaryOnlyPacket, parseRateLimit, checkRateLimit3 } from '../utils';
+import { FuncList, Logger, getNames, getIgnore, MethodDef, OnSend, OnRecv, Bin, RemoteOptions, getMethodsDefArray } from '../common/interfaces';
+import { isBinaryOnlyPacket, parseRateLimit, checkRateLimit3 } from '../common/utils';
 import {
 	writeUint8, writeInt16, writeUint16, writeUint32, writeInt32, writeFloat64, writeFloat32, writeBoolean,
 	writeString, writeArrayBuffer, writeUint8Array, writeInt8, writeArrayHeader,

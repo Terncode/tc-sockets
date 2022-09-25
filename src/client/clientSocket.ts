@@ -1,9 +1,9 @@
 import {
 	SocketService, SocketServer, SocketClient, ClientOptions, FuncList, MethodOptions, Logger, RateLimitDef
-} from './interfaces';
-import { supportsBinary as isSupportingBinary, Deferred, deferred, queryString, parseRateLimit, checkRateLimit2 } from './utils';
-import { PacketHandler, createPacketHandler } from './packet/packetHandler';
-import { createBinaryReaderFromBuffer } from './packet/binaryReader';
+} from '../common/interfaces';
+import { supportsBinary as isSupportingBinary, Deferred, deferred, queryString, parseRateLimit, checkRateLimit2 } from '../common/utils';
+import { PacketHandler, createPacketHandler } from '../packet/packetHandler';
+import { createBinaryReaderFromBuffer } from '../packet/binaryReader';
 
 export interface ClientErrorHandler {
 	handleRecvError(error: Error, data: string | Uint8Array): void;

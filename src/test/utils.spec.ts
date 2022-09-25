@@ -1,8 +1,8 @@
 import './common';
 import { expect } from 'chai';
 import { SinonStub } from 'sinon';
-import { parseRateLimit, getLength, queryString, checkRateLimit2 } from '../utils';
-import { RateLimitDef } from '../interfaces';
+import { parseRateLimit, getLength, queryString, checkRateLimit2 } from '../common/utils';
+import { RateLimitDef } from '../common/interfaces';
 import sinon = require('sinon');
 
 describe('getLength()', () => {

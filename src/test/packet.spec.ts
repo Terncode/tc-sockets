@@ -2,7 +2,7 @@ import './common';
 import { expect } from 'chai';
 import { assert, spy, stub } from 'sinon';
 import { MessageType, PacketHandler, createPacketHandler } from '../packet/packetHandler';
-import { Bin } from '../interfaces';
+import { Bin } from '../common/interfaces';
 import { createBinaryReader } from '../packet/binaryReader';
 
 describe('PacketHandler', () => {

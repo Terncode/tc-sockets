@@ -1,6 +1,6 @@
 import * as ws from 'ws';
 import { stub } from 'sinon';
-import { queryString } from '../utils';
+import { queryString } from '../common/utils';
 import { delay } from './common';
 
 let lastServer: MockWebSocketServer;
