@@ -39,7 +39,7 @@ export interface Server {
 export type CreateServer<TServer, TClient> = (client: TClient & SocketServerClient) => (TServer | Promise<TServer>);
 export type CreateServerMethod = (client: any) => (SocketServer | Promise<SocketServer>);
 
-export interface ServerHost {
+export interface ServerHost<TServer = any, TClient = any> {
 	close(): void;
 	socket<TServer, TClient>(
 		serverType: new (...args: any[]) => TServer,
@@ -47,7 +47,7 @@ export interface ServerHost {
 		createServer: CreateServer<TServer, TClient>,
 		options?: ServerOptions,
 	): Server;
-	socketRaw(createServer: CreateServerMethod, options: ServerOptions): Server;
+	socketRaw(createServer: CreateServerMethod | CreateServer<TServer, TClient>, options: ServerOptions): Server;
 	upgrade(request: any, socket: any): void;
 }
 
