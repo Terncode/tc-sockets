@@ -10,8 +10,8 @@ const clients: DemoClient[] = [];
 @Socket({
 	path: '/ws',
 	debug: false,
-	connectionTokens: true,
-	//transferLimit: 100,
+	// connectionTokens: true,
+	// transferLimit: 100,
 })
 class DemoServer {
 	constructor(private client: DemoClient) {
@@ -35,11 +35,14 @@ class DemoServer {
 	}
 }
 
+const PORT = 8071;
 const app = express();
-app.set('port', 8071);
+app.set('port', PORT);
 
 const server = http.createServer(app);
-const socket = createServer(server, DemoServer, DemoClient, client => new DemoServer(client), {}, {
+const socket = createServer(DemoServer, DemoClient, client => new DemoServer(client), {
+	port: PORT + 1,
+}, {
 	handleError: console.log,
 	handleRejection: console.log,
 	handleRecvError: console.log,

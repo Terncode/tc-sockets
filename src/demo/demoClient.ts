@@ -1,5 +1,7 @@
 import { Method, createClientSocket } from '../browser';
 
+const SOCKET_PORT = 8072;
+
 interface DemoServer {
 	name(text: string): void;
 	message(text: string): void;
@@ -15,7 +17,8 @@ export class DemoClient {
 if (typeof window !== 'undefined') {
 	let lastName: string | null = null;
 	const config = (window as any).config;
-	const service = createClientSocket<DemoClient, DemoServer>(config);
+	const host = `${location.host.split(':')[0]}:${SOCKET_PORT}`;
+	const service = createClientSocket<DemoClient, DemoServer>({...config, host});
 	service.client.message = function (name, text) {
 		document.getElementById('messages')!.innerHTML += `[${name}] ${text}\n`;
 	};
