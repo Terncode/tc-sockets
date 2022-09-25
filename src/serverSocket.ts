@@ -23,7 +23,7 @@ export function createServer<TServer, TClient>(
 	errorHandler?: ErrorHandler,
 	log?: Logger
 ) {
-	return createServerRaw(httpServer, createServer, createServerOptions(serverType, clientType, options), errorHandler, log);
+	return createServerRaw(httpServer, createServer as CreateServerMethod, createServerOptions(serverType, clientType, options), errorHandler, log);
 }
 
 export function createServerRaw(
@@ -129,7 +129,7 @@ export function createServerHost(httpServer: HttpServer | undefined, globalConfi
 		baseOptions?: ServerOptions
 	): Server {
 		const options = createServerOptions(serverType, clientType, baseOptions);
-		return socketRaw(createServer, options);
+		return socketRaw(createServer as CreateServerMethod, options);
 	}
 
 	function socketRaw(createServer: CreateServerMethod, options: ServerOptions): Server {

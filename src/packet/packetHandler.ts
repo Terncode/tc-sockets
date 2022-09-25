@@ -34,7 +34,7 @@ function createWriteBytesRange() {
 	};
 	writeBytesRangeHandler.reset = () => {
 		argumentBuilder.length = 0;
-	}
+	};
 	return writeBytesRangeHandler;
 }
 createWriteBytesRange.allocate = 3;
@@ -53,13 +53,13 @@ function createReadBytesRange() {
 				const result = array ? array.byteLength : 0;
 				return result;
 			default:
-				return null;noop
+				return null;noop;
 		}
-	}
+	};
 	readBytesRangeViewHandler.reset = () => {
 		step = 0;
 		array = null;
-	}
+	};
 
 	return readBytesRangeViewHandler;
 }
@@ -76,7 +76,7 @@ function createWriteBytesRangeView() {
 	};
 	writeBytesRangeViewHandler.reset = () => {
 		argumentBuilder.length = 0;
-	}
+	};
 	return writeBytesRangeViewHandler;
 }
 createWriteBytesRangeView.allocate = 3;
@@ -96,7 +96,7 @@ function createReadBytesRangeView() {
 					offset = reader.offset;
 					length = lengthRead;
 					reader.offset += lengthRead;
-				};
+				}
 				return view;
 			case 1:
 				return offset;
@@ -105,13 +105,13 @@ function createReadBytesRangeView() {
 			default:
 				return null;
 		}
-	}
+	};
 	readBytesRangeViewHandler.reset = () => {
 		view = null;
 		offset = 0;
 		length = 0;
 		step = 0;
-	}
+	};
 
 	return readBytesRangeViewHandler;
 }
@@ -135,9 +135,9 @@ const readerMethodsMapping: {[key : string]: ReaderFunction} = {
 	[Bin.Buffer]: readArrayBuffer,
 	[Bin.U8Array]: readUint8Array,
 	[Bin.Raw]: readBytesRaw,
-	[Bin.U8ArrayOffsetLength]: createReadBytesRange, 
+	[Bin.U8ArrayOffsetLength]: createReadBytesRange,
 	[Bin.DataViewOffsetLength]: createReadBytesRangeView,
-}
+};
 
 
 const writerMethodsMapping: {[key in Bin]: WriterFunction} = {
@@ -155,9 +155,9 @@ const writerMethodsMapping: {[key in Bin]: WriterFunction} = {
 	[Bin.Buffer]: writeArrayBuffer,
 	[Bin.U8Array]: writeUint8Array,
 	[Bin.Raw]: writeBytes,
-	[Bin.U8ArrayOffsetLength]: createWriteBytesRange, 
+	[Bin.U8ArrayOffsetLength]: createWriteBytesRange,
 	[Bin.DataViewOffsetLength]: createWriteBytesRangeView,
-}
+};
 
 export interface Send {
 	(data: string | Uint8Array): void; // or Buffer
@@ -316,7 +316,7 @@ function createBinReadFnField(bin: Bin | any[]): ReaderFunction {
 	if (Array.isArray(bin)) {
 		if(bin.length === 1) {
 			const readerFunction = createBinReadFnField(bin[0]);
-		
+
 			const readArrayOneInner: ReaderFunction = function (reader, strings, cloneTypedArrays) {
 				return readArray(reader, fnReader => readerFunction(fnReader, strings, cloneTypedArrays));
 			};
@@ -333,7 +333,7 @@ function createBinReadFnField(bin: Bin | any[]): ReaderFunction {
 					}
 					return result;
 				});
-	
+
 				return value;
 			};
 			// (readArrayInner as any).debug = readerFunctions;
@@ -352,7 +352,7 @@ function createLocalHandler(methodsDef: MethodDef[], onRecv: OnRecv): LocalHandl
 	for (let i = 0; i < methods.length; i++) {
 		const name = methods[i][0];
 		const options = methods[i][1];
-		let checkRateLimit: RateLimitChecker = () => {}
+		let checkRateLimit: RateLimitChecker = () => {};
 		if (options.rateLimit || options.serverRateLimit) {
 			const { limit, frame } = options.serverRateLimit ? parseRateLimit(options.serverRateLimit, false) : parseRateLimit(options.rateLimit!, true);
 
@@ -368,8 +368,8 @@ function createLocalHandler(methodsDef: MethodDef[], onRecv: OnRecv): LocalHandl
 		}
 		if (options.binary) {
 			const decoders: LocalHandlerDef['decoders'] = [];
-			const reseters: ResetFunction[] = []
-			const handlers =  flattenArgs(options.binary.map(createBinReadFnField), reseters); 
+			const reseters: ResetFunction[] = [];
+			const handlers =  flattenArgs(options.binary.map(createBinReadFnField), reseters);
 			for (const handler of handlers) {
 				decoders.push(handler);
 			}
@@ -390,14 +390,14 @@ function createLocalHandler(methodsDef: MethodDef[], onRecv: OnRecv): LocalHandl
 		}
 
 	}
-	
+
 
 	const strings: string[] = [];
 	const localHandler: LocalHandler = function (actions: any, reader: BinaryReader, callsList: number[], messageId: number, handleResult?: HandleResult | undefined) {
 		strings.length = 0;
 		reader.offset = 0;
 		const packetId = readUint8(reader);
-		const def = methodsHandler[packetId]!;		 
+		const def = methodsHandler[packetId]!;
 		if (def && def.decoders) {
 			const args: any[] = [];
 			def.checkRateLimit(packetId, callsList, packetId, handleResult);
@@ -408,7 +408,7 @@ function createLocalHandler(methodsDef: MethodDef[], onRecv: OnRecv): LocalHandl
 			}
 			const result = actions[def.name](...args);
 			if (def.promise && handleResult) {
-				handleResult(packetId, def.name, result, messageId)
+				handleResult(packetId, def.name, result, messageId);
 			}
 		} else {
 			throw new Error(`Missing binary decoder for: ${def.name} (${packetId})`);
@@ -429,7 +429,7 @@ function createBinWriteField(bin: Bin | any[]): WriterFunction {
 				}
 			};
 			// (writeArrayOneInner as any).debug = arrayWriter;
-			return writeArrayOneInner
+			return writeArrayOneInner;
 		} else {
 			const arrayWriters = bin.map(createBinWriteField);
 			const writeArrayInner: WriterFunction = function (writer, value: any[], strings) {
@@ -442,7 +442,7 @@ function createBinWriteField(bin: Bin | any[]): WriterFunction {
 				}
 			};
 			// (writeArrayInner as any).debug = arrayWriters;
-			return writeArrayInner
+			return writeArrayInner;
 		}
 	} else {
 		return writerMethodsMapping[bin];
@@ -468,13 +468,13 @@ function flattenArgs<T>(AllocateFnOrOther: (T | AllocatorFunction)[], reseters: 
 }
 
 function stringWriter(index: number, name: string, send: Send, state: RemoteState, onSend: OnSend) {
-	return function() { 
+	return function() {
 		const len = arguments.length;
 		try {
 			const args = [index];
 			for (let j = 0; j < len; j++) {
-				args.push(arguments[j])
-			};
+				args.push(arguments[j]);
+			}
 			const json = JSON.stringify(args);
 			send(json);
 			state.sentSize += json.length;
@@ -483,7 +483,7 @@ function stringWriter(index: number, name: string, send: Send, state: RemoteStat
 		} catch(_) {
 			return false;
 		}
-	}
+	};
 }
 
 function getBuffer(writer: BinaryWriter, useBuffer: true): Buffer;
@@ -496,7 +496,7 @@ function getBuffer(writer: BinaryWriter, useBuffer: true | false | undefined) {
 	}
 }
 function getBufferLen(buffer: Uint8Array, useBuffer: false | undefined): number;
-function getBufferLen(buffer: Buffer, useBuffer: true): number; 
+function getBufferLen(buffer: Buffer, useBuffer: true): number;
 function getBufferLen(buffer: Buffer | Uint8Array, useBuffer: true | false | undefined) {
 	if(useBuffer) {
 		return (buffer as Buffer).length;
@@ -508,7 +508,7 @@ function getBufferLen(buffer: Buffer | Uint8Array, useBuffer: true | false | und
 function createCreateRemoteHandler(methodsDef: MethodDef[], handlerOptions: HandlerOptions): CreateRemoteHandler {
 	const methods = getMethodsDefArray(methodsDef);
 	return (remote, send, state, options, writer) => {
-		const onSend = options.onSend || function () {}
+		const onSend = options.onSend || function () {};
 		const strings = new Map<string, number>();
 		for (let i = 0; i < methods.length; i++) {
 			const name = methods[i][0];
@@ -534,30 +534,31 @@ function createCreateRemoteHandler(methodsDef: MethodDef[], handlerOptions: Hand
 								send(buffer);
 								state.sentSize += getBufferLen(buffer, handlerOptions.useBuffer as any);
 								onSend(i, name, getBufferLen(buffer, handlerOptions.useBuffer as any), true);
-								return true
+								return true;
 							} catch (error) {
 								if (isSizeError(error)) {
 									resizeWriter(writer);
 								} else {
-									return false
+									return false;
 								}
 							}
 						}
 					} else {
-						return stringDecoder
+						return stringDecoder;
 					}
-				}
+				};
 				// remote[name].debug = argsWriter;
 			} else {
 				if (handlerOptions.useBinaryByDefault || handlerOptions.forceBinary || isBinaryOnlyPacket(methodsDef[i])) {
-					remote[name] = function() { 
+					remote[name] = function() {
 						console.error('Only binary protocol supported');
 						return false;
-					}
+					};
 				} else {
-					remote[name] = stringDecoder
+					remote[name] = stringDecoder;
 				}
 			}
 		}
-	}
+	};
 }
+
