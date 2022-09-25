@@ -132,6 +132,10 @@ export function getNames(methods: MethodDef[]) {
 	return methods.map(i => typeof i === 'string' ? i : i[0]);
 }
 
+export function getMethodsDefArray(methods: MethodDef[]): [string, MethodOptions][] {
+	return methods.map(i => typeof i === 'string' ? [i, {}] : i);
+}
+
 export function getIgnore(methods: MethodDef[]) {
 	return methods.map(i => (typeof i !== 'string' && i[1].ignore) ? i[0] : null).filter(x => !!x) as string[];
 }
