@@ -1,20 +1,16 @@
 # ag-sockets
 
-[![Build Status](https://travis-ci.org/Agamnentzar/ag-sockets.svg)](https://travis-ci.org/Agamnentzar/ag-sockets)
-[![npm version](https://badge.fury.io/js/ag-sockets.svg)](https://badge.fury.io/js/ag-sockets)
-
 Library for communication via WebSockets
 
 ## Installation
 
 ```bash
-npm install ag-sockets
-npm install ws # peer dependency
+npm i "https://github.com/Terncode/tc-sockets#uws.js" # From my experience this command takes really long time 
 ```
 
 ## Usage
 
-### Using with [µWebSockets](https://github.com/uWebSockets/uWebSockets)
+### Using with [µWebSockets](https://github.com/uNetworking/uWebSockets.js)
 
 ```
 npm install uws
@@ -25,7 +21,7 @@ import * as uws from 'uws';
 import { createServer } from 'ag-sockets';
 
 // ...
-const wsServer = createServer(..., { ws: uws, arrayBuffer: true });
+const wsServer = createServer({ arrayBuffer: true, port: 3000 });
 ```
 
 ### Set up sockets
