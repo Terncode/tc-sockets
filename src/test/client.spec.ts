@@ -16,6 +16,7 @@ class MockWebSocket {
 	static readonly CLOSED = 3;
 	readyState = MockWebSocket.OPEN;
 	constructor(public url: string) {
+		// eslint-disable-next-line @typescript-eslint/no-this-alias
 		lastWebSocket = this;
 	}
 	onmessage(_message: any) { }

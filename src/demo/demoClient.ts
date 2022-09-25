@@ -6,7 +6,7 @@ interface DemoServer {
 }
 
 export class DemoClient {
-	name: string = '';
+	name = '';
 	@Method()
 	message(_user: string, _text: string) {
 	}

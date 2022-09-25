@@ -19,6 +19,7 @@ export class MockEventEmitter {
 export class MockWebSocketServer extends MockEventEmitter {
 	constructor(public options: ws.ServerOptions) {
 		super();
+		// eslint-disable-next-line @typescript-eslint/no-this-alias
 		lastServer = this;
 	}
 	close() { }
