@@ -187,7 +187,7 @@ export function readAny(reader: BinaryReader, strings: string[], cloneTypedArray
 		}
 		case Type.Array: {
 			const length = readShortLength(reader, value);
-			const array = [];
+			const array: any[] = [];
 
 			for (let i = 0; i < length; i++) {
 				array.push(readAny(reader, strings, cloneTypedArrays));
