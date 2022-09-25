@@ -1,7 +1,7 @@
 import { ClientOptions, SocketServer, Logger, MethodDef, CommonOptions, OnSend, OnRecv, RateLimitDef } from '../common/interfaces';
 import { SocketServerClient, ErrorHandler } from './server';
-import { IncomingMessage } from 'http';
 import { Send, PacketHandler } from '../packet/packetHandler';
+import { CompressOptions, HttpRequest, TemplatedApp, WebSocket } from 'uWebSockets.js';
 
 export interface Token {
 	id: string;
@@ -39,7 +39,7 @@ export interface Server {
 export type CreateServer<TServer, TClient> = (client: TClient & SocketServerClient) => (TServer | Promise<TServer>);
 export type CreateServerMethod = (client: any) => (SocketServer | Promise<SocketServer>);
 
-export interface ServerHost<TServer = any, TClient = any> {
+export interface ServerHost {
 	close(): void;
 	socket<TServer, TClient>(
 		serverType: new (...args: any[]) => TServer,
@@ -47,20 +47,32 @@ export interface ServerHost<TServer = any, TClient = any> {
 		createServer: CreateServer<TServer, TClient>,
 		options?: ServerOptions,
 	): Server;
-	socketRaw(createServer: CreateServerMethod | CreateServer<TServer, TClient>, options: ServerOptions): Server;
-	upgrade(request: any, socket: any): void;
+	socketRaw(createServer: CreateServerMethod, options: ServerOptions): Server;
+	app: TemplatedApp;
 }
 
-export interface GlobalConfig {
+export interface PortOption {
+	/** Server port. Providing port will make library automatically handle socket connections **/
+	port: number
+}
+
+export interface ServerAppOption {
+	/** Server app. Providing uWebSockets.js app if you want to manually handle listening  **/
+	app: TemplatedApp
+}
+
+interface PartialGlobalConfig {
 	path?: string;
 	errorHandler?: ErrorHandler;
 	perMessageDeflate?: boolean;
+	compression?: CompressOptions;
 	log?: Logger;
-	ws?: any;
 	errorCode?: number;
 	errorName?: string;
 	nativePing?: number;
 }
+
+export type GlobalConfig = PartialGlobalConfig & (ServerAppOption | PortOption);
 
 export interface InternalServer {
 	// state
@@ -87,7 +99,7 @@ export interface InternalServer {
 	serverMethods: MethodDef[];
 	clientMethods: string[];
 	rateLimits: (RateLimitDef | undefined)[];
-	verifyClient: (req: IncomingMessage) => boolean;
+	verifyClient: (req: HttpRequest) => boolean;
 	createClient?: (client: SocketServerClient, send: (data: string | Uint8Array | Buffer) => void) => SocketServerClient;
 	// methods
 	createServer: CreateServerMethod;
@@ -96,7 +108,8 @@ export interface InternalServer {
 	server: Server;
 }
 
-export interface ServerOptions extends CommonOptions {
+
+export interface PartialServerOptions extends CommonOptions {
 	/** time after after last message from client when server assumes client is not responding (in milliseconds) */
 	connectionTimeout?: number;
 	/** limit connections to one per generated token */
@@ -107,14 +120,14 @@ export interface ServerOptions extends CommonOptions {
 	clientLimit?: number;
 	/** per message deflate compression switch */
 	perMessageDeflate?: boolean;
+	/** WebSocket compression options. Combine any compressor with any decompressor using bitwise OR. */
+	compression?: CompressOptions;
 	/** transfer limit (bytes per second) */
 	transferLimit?: number;
 	/** custom client verification method */
-	verifyClient?: (req: IncomingMessage) => boolean;
+	verifyClient?: (req: HttpRequest) => boolean;
 	/** allows to modify client object */
 	createClient?: (client: SocketServerClient, send: (data: string | Uint8Array | Buffer) => void) => SocketServerClient;
-	/** ws library or alternative */
-	ws?: any;
 	/** use ArrayBuffer instead of Buffer on server side */
 	arrayBuffer?: boolean;
 	/** only allow binary packets and binary connections */
@@ -134,4 +147,12 @@ export interface ServerOptions extends CommonOptions {
 	onRecv?: OnRecv;
 	client?: MethodDef[];
 	server?: MethodDef[];
+}
+export type ServerOptions = PartialServerOptions & (PortOption | ServerAppOption)
+
+export interface UWSSocketEvents {
+	socket: WebSocket,
+	onMessage: (message: ArrayBuffer, isBinary: boolean) => void,
+	onClose: (code: number, message: ArrayBuffer) => void,
+	isClosed: boolean;
 }

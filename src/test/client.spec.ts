@@ -3,9 +3,11 @@ import { expect } from 'chai';
 import { stub, spy, assert, match } from 'sinon';
 import { MessageType } from '../packet/packetHandler';
 import {
-	ClientOptions, SocketClient, SocketServer, SocketService, ClientErrorHandler, createClientSocket
+	ClientOptions, SocketClient, SocketServer, SocketService, createClientSocket, ClientErrorHandler
 } from '../index';
 import { cloneDeep } from '../common/utils';
+spy;
+match;
 
 let lastWebSocket: MockWebSocket;
 
@@ -16,7 +18,6 @@ class MockWebSocket {
 	static readonly CLOSED = 3;
 	readyState = MockWebSocket.OPEN;
 	constructor(public url: string) {
-		// eslint-disable-next-line @typescript-eslint/no-this-alias
 		lastWebSocket = this;
 	}
 	onmessage(_message: any) { }
@@ -287,10 +288,9 @@ describe('ClientSocket', () => {
 
 		it('sends data to socket', () => {
 			const send = stub(lastWebSocket, 'send');
-
 			service.server.test2();
 
-			assert.calledWith(send as any, '[0]');
+			assert.calledWith(send as any, JSON.stringify([0]));
 		});
 
 		it('rejects when rate limit is exceeded', async () => {

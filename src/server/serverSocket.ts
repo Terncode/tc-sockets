@@ -1,21 +1,19 @@
-import { Server as HttpServer, IncomingMessage } from 'http';
-import { Socket } from 'net';
-import * as ws from 'ws';
 import { ClientOptions, getNames, SocketServer, Logger } from '../common/interfaces';
 import { getLength, cloneDeep, checkRateLimit2 } from '../common/utils';
 import { ErrorHandler, OriginalRequest } from './server';
 import { MessageType, Send, createPacketHandler, HandleResult, HandlerOptions } from '../packet/packetHandler';
 import {
-	Server, ClientState, InternalServer, GlobalConfig, ServerHost, CreateServerMethod, CreateServer, ServerOptions
+	Server, ClientState, InternalServer, GlobalConfig, ServerHost, CreateServerMethod, CreateServer, ServerOptions, UWSSocketEvents, ServerAppOption, PortOption
 } from './serverInterfaces';
 import {
 	hasToken, createToken, getToken, getTokenFromClient, returnTrue, createOriginalRequest, defaultErrorHandler,
 	createServerOptions, optionsWithDefaults, toClientOptions, getQuery, callWithErrorHandling, parseRateLimitDef,
 } from './serverUtils';
-import { BinaryReader, createBinaryReaderFromBuffer, getBinaryReaderBuffer } from '../packet/binaryReader';
+import { BinaryReader, createBinaryReaderFromBuffer, getBinaryReaderBuffer, readString } from '../packet/binaryReader';
+import { App, DISABLED, HttpRequest, SHARED_COMPRESSOR, us_listen_socket, us_listen_socket_close, WebSocket } from 'uWebSockets.js';
+import * as HTTP from 'http';
 
 export function createServer<TServer, TClient>(
-	httpServer: HttpServer | undefined,
 	serverType: new (...args: any[]) => TServer,
 	clientType: new (...args: any[]) => TClient,
 	createServer: CreateServer<TServer, TClient>,
@@ -23,58 +21,130 @@ export function createServer<TServer, TClient>(
 	errorHandler?: ErrorHandler,
 	log?: Logger
 ) {
-	return createServerRaw(httpServer, createServer as CreateServerMethod, createServerOptions(serverType, clientType, options), errorHandler, log);
+	return createServerRaw(createServer as CreateServerMethod, createServerOptions(serverType, clientType, options), errorHandler, log);
 }
 
 export function createServerRaw(
-	httpServer: HttpServer | undefined, createServer: CreateServerMethod, options: ServerOptions,
+	createServer: CreateServerMethod, options: ServerOptions,
 	errorHandler?: ErrorHandler, log?: Logger
 ): Server {
-	const host = createServerHost(httpServer, {
+	const host = createServerHost({
 		path: options.path,
 		errorHandler,
 		log,
-		ws: options.ws,
+		port: (options as PortOption).port,
+		app: (options as ServerAppOption).app,
 		perMessageDeflate: options.perMessageDeflate,
+		compression: options.compression,
 	});
 	const socket = host.socketRaw(createServer, { id: 'socket', ...options });
 	socket.close = host.close;
 	return socket;
 }
 
-export function createServerHost(httpServer: HttpServer | undefined, globalConfig: GlobalConfig): ServerHost {
-	const wsLibrary = (globalConfig.ws || require('ws')) as any as typeof ws;
+export function createServerHost(globalConfig: GlobalConfig): ServerHost {
+	if(!(globalConfig as ServerAppOption).app && !(globalConfig as PortOption).port) {
+		throw new Error('Port or uWebSockets.js app not provided');
+	}
+	if((globalConfig as ServerAppOption).app && (globalConfig as PortOption).port) {
+		throw new Error('Provide port or uWebSockets.js app but not both');
+	}
+	const uwsApp = (globalConfig as ServerAppOption).app || App();
 	const {
 		path = '/ws',
 		log = console.log.bind(console),
 		errorHandler = defaultErrorHandler,
 		perMessageDeflate = true,
 		errorCode = 400,
-		errorName = 'Bad Request',
+		errorName = HTTP.STATUS_CODES[400] as string,
 		nativePing = 0,
 	} = globalConfig;
 	const servers: InternalServer[] = [];
 
-	const wsServer = new wsLibrary.Server({
-		server: httpServer,
-		noServer: !httpServer,
-		path,
-		perMessageDeflate,
-		verifyClient,
+	let upgradeReq: OriginalRequest | undefined;
+	let connectedSockets = new Map<WebSocket, UWSSocketEvents>();
+	uwsApp.ws(path, {
+		compression: globalConfig.compression ? globalConfig.compression : (perMessageDeflate ? SHARED_COMPRESSOR : DISABLED),
+		sendPingsAutomatically: !!nativePing,
+		idleTimeout: nativePing ? nativePing : undefined,
+
+		upgrade: (res, req, context) => {
+			if (upgradeReq) {
+				res.end(`HTTP/1.1 ${503} ${HTTP.STATUS_CODES[503]}\r\n\r\n`);
+				return;
+			}
+			let aborted = false;
+			res.onAborted(() => {
+				aborted = true;
+			});
+			const url = req.getUrl();
+			const secWebSocketKey = req.getHeader('sec-websocket-key');
+			const secWebSocketProtocol = req.getHeader('sec-websocket-protocol');
+			const secWebSocketExtensions = req.getHeader('sec-websocket-extensions');
+
+			if (globalConfig.path && globalConfig.path !== url.split('?')[0].split('#')[0]) {
+				res.end(`HTTP/1.1 ${400} ${HTTP.STATUS_CODES[400]}\r\n\r\n`);
+				return;
+			}
+
+			const originalRequest = createOriginalRequest(req);
+			verifyClient(req, (result, code, name) => {
+				if (aborted) return;
+				if (result) {
+					upgradeReq = originalRequest;
+					try {
+						res.upgrade({url},
+							secWebSocketKey,
+							secWebSocketProtocol,
+							secWebSocketExtensions,
+							context);
+					} catch (error) {
+						console.error(error);
+					}
+				} else {
+					res.end(`HTTP/1.1 ${code} ${name}\r\n\r\n`);
+				}
+			});
+		},
+		open: (ws) => {
+			if (!upgradeReq) {
+				ws.close();
+				return;
+			}
+			const uwsSocketEvents: UWSSocketEvents = {
+				socket: ws,
+				onClose: () => {},
+				onMessage: () => {},
+				isClosed: false,
+			};
+			connectSocket(upgradeReq, uwsSocketEvents);
+
+			connectedSockets.set(ws, uwsSocketEvents);
+			upgradeReq = undefined;
+		},
+		message(ws, message, isBinary) {
+			connectedSockets.get(ws)!.onMessage(message, isBinary);
+		},
+		close(ws, code, message) {
+			const events = connectedSockets.get(ws)!;
+			if (events) {
+				events.isClosed = true;//
+				events.onClose(code, message);
+				connectedSockets.delete(ws);
+			}
+		},
 	});
 
-	wsServer.on('connection', connectSocket);
-
-	wsServer.on('error', e => {
-		errorHandler.handleError(null, e);
-	});
-
-	if (nativePing) {
-		if ('startAutoPing' in wsServer) {
-			(wsServer as any).startAutoPing(nativePing);
-		} else {
-			throw new Error('Native ping is not supported');
-		}
+	let socketToken: us_listen_socket | undefined;
+	if ((globalConfig as PortOption).port) {
+		const port = (globalConfig as PortOption).port;
+		uwsApp.listen(port, token => {
+			if (token) {
+				socketToken = token;
+			} else {
+				errorHandler.handleError(null, new Error(`Failed to listen to port ${port}`));
+			}
+		});
 	}
 
 	function getServer(id: any) {
@@ -87,9 +157,9 @@ export function createServerHost(httpServer: HttpServer | undefined, globalConfi
 		throw new Error(`No server for given id (${id})`);
 	}
 
-	function verifyClient({ req }: { req: IncomingMessage }, next: (result: any, code: number, name: string) => void) {
+	function verifyClient(req : HttpRequest, next: (result: any, code: number, name: string) => void) {
 		try {
-			const query = getQuery(req.url);
+			const query = getQuery(req.getUrl());
 			const server = getServer(query.id);
 
 			if (!server.verifyClient(req)) {
@@ -113,7 +183,11 @@ export function createServerHost(httpServer: HttpServer | undefined, globalConfi
 
 	function close() {
 		servers.forEach(closeServer);
-		wsServer.close();
+		connectedSockets.forEach((_, socket) => socket.end());
+		if (socketToken) {
+			us_listen_socket_close(socketToken);
+			socketToken = undefined;
+		}
 	}
 
 	function closeAndRemoveServer(server: InternalServer) {
@@ -136,7 +210,7 @@ export function createServerHost(httpServer: HttpServer | undefined, globalConfi
 		const internalServer = createInternalServer(createServer, { ...options, path }, errorHandler, log);
 
 		if (servers.some(s => s.id === internalServer.id)) {
-			throw new Error('Cannot open two sokets with the same id');
+			throw new Error('Cannot open two sockets with the same id');
 		}
 
 		servers.push(internalServer);
@@ -144,40 +218,21 @@ export function createServerHost(httpServer: HttpServer | undefined, globalConfi
 		return internalServer.server;
 	}
 
-	function upgrade(request: IncomingMessage, socket: Socket) {
-		// have to run verifyClient manually because clusterws/cws doesn't do that
-		verifyClient({ req: request }, (result, code, name) => {
-			if (result) {
-				wsServer.handleUpgrade(request, socket, Buffer.alloc(0), socket => connectSocket(socket, request));
-			} else {
-				if (socket.writable) {
-					socket.write(
-						`HTTP/1.1 ${code} ${name}\r\n` +
-						`Connection: close\r\n` +
-						`Content-Type: text/html\r\n` +
-						`Content-Length: ${Buffer.byteLength(name)}\r\n` +
-						'\r\n\r\n' +
-						name
-					);
-				}
-				socket.destroy();
-			}
-		});
-	}
-
-	function connectSocket(socket: ws, request: IncomingMessage) {
+	function connectSocket(originalRequest: OriginalRequest, socketEvents: UWSSocketEvents) {
 		try {
-			const originalRequest = createOriginalRequest(socket, request);
 			const query = getQuery(originalRequest.url);
 			const server = getServer(query.id);
-			connectClient(socket, server, originalRequest, errorHandler, log);
+
+			connectClient(server, originalRequest, errorHandler, log, socketEvents);
 		} catch (e) {
-			socket.terminate();
+			if (!socketEvents.isClosed) {
+				socketEvents.socket.end();
+			}
 			errorHandler.handleError(null, e);
 		}
 	}
 
-	return { close, socket, socketRaw, upgrade };
+	return { close, socket, socketRaw, app: uwsApp };
 }
 
 function createInternalServer(
@@ -191,7 +246,6 @@ function createInternalServer(
 		development: options.development,
 		forceBinary: options.forceBinary,
 		forceBinaryPackets: options.forceBinaryPackets,
-		useBinaryByDefault: options.useBinaryByDefault,
 		onSend,
 		onRecv: options.onRecv,
 		useBuffer: true,
@@ -346,22 +400,29 @@ function closeServer(server: InternalServer) {
 }
 
 function connectClient(
-	socket: ws, server: InternalServer, originalRequest: OriginalRequest, errorHandler: ErrorHandler, log: Logger
+	server: InternalServer, originalRequest: OriginalRequest, errorHandler: ErrorHandler, log: Logger,
+	uwsSocketEvents: UWSSocketEvents
 ) {
+	const socket = uwsSocketEvents.socket;
 	const query = getQuery(originalRequest.url);
 	const t = (query.t || '') as string;
 	const token = server.connectionTokens ? getToken(server, t) || getTokenFromClient(server, t) : undefined;
 
 	if (server.hash && query.hash !== server.hash) {
 		if (server.debug) log('client disconnected (hash mismatch)');
+
 		socket.send(JSON.stringify([MessageType.Version, server.hash]));
-		socket.terminate();
+		if (!uwsSocketEvents.isClosed) {
+			socket.end();
+		}
 		return;
 	}
 
 	if (server.connectionTokens && !token) {
 		errorHandler.handleError({ originalRequest } as any, new Error(`Invalid token: ${t}`));
-		socket.terminate();
+		if (!uwsSocketEvents.isClosed) {
+			uwsSocketEvents.socket.end();
+		}
 		return;
 	}
 
@@ -408,8 +469,9 @@ function connectClient(
 				}
 
 				if (force) {
-					close(0, reason);
-					socket.terminate();
+					if (!uwsSocketEvents) {
+						socket.end();
+					}
 				} else {
 					closeReason = reason;
 					socket.close();
@@ -430,13 +492,13 @@ function connectClient(
 
 		if (data instanceof Buffer) {
 			server.totalSent += data.byteLength;
-			socket.send(data);
+			socket.send(data, true);
 		} else if (typeof data !== 'string') {
 			server.totalSent += data.byteLength;
-			socket.send(Buffer.from(data.buffer, data.byteOffset, data.byteLength));
+			socket.send(Buffer.from(data.buffer, data.byteOffset, data.byteLength), true);
 		} else {
 			server.totalSent += data.length;
-			socket.send(data);
+			socket.send(data, false);
 		}
 
 		obj.lastSendTime = Date.now();
@@ -447,25 +509,24 @@ function connectClient(
 	};
 
 	function serverActionsCreated(serverActions: SocketServer) {
-		socket.on('message', (message: string | Buffer | ArrayBuffer, flags?: { binary: boolean; }) => {
+		uwsSocketEvents.onMessage = (message, isBinary) => {
 			try {
+				let data: string | undefined = undefined;
+				if (!isBinary) {
+					data = Buffer.from(message).toString();
+				}
 				if (transferLimitExceeded || !isConnected)
 					return;
 
-				const messageLength = getLength(message);
+				const messageLength = getLength(data || message);
 				bytesReceived += messageLength;
 				server.totalReceived += bytesReceived;
 
-				let data: string | undefined = undefined;
 				let reader: BinaryReader | undefined = undefined;
 
 				if (messageLength) {
-					if (message instanceof Buffer) {
-						reader = createBinaryReaderFromBuffer(message.buffer, message.byteOffset, message.byteLength);
-					} else if (message instanceof ArrayBuffer) {
+					if (isBinary) {
 						reader = createBinaryReaderFromBuffer(message, 0, message.byteLength);
-					} else {
-						data = message;
 					}
 				}
 
@@ -491,7 +552,7 @@ function connectClient(
 				}
 
 				obj.lastMessageTime = Date.now();
-				obj.supportsBinary = obj.supportsBinary || !!(flags && flags.binary);
+				obj.supportsBinary = obj.supportsBinary || !!(isBinary);
 
 				if (reader || data) {
 					obj.lastMessageId++;
@@ -528,7 +589,7 @@ function connectClient(
 			} catch (e) {
 				errorHandler.handleError(obj.client, e);
 			}
-		});
+		};
 
 		server.packetHandler.createRemote(obj.client, send, obj);
 
@@ -547,7 +608,7 @@ function connectClient(
 
 	let closed = false;
 
-	function close(code: number, reason: string) {
+	uwsSocketEvents.onClose = (code, reason) => {
 		if (closed) return;
 
 		try {
@@ -564,7 +625,9 @@ function connectClient(
 			if (server.debug) log('client disconnected');
 
 			if (serverActions?.disconnected) {
-				callWithErrorHandling(() => serverActions!.disconnected!(code, closeReason || reason), () => { },
+				const reader = createBinaryReaderFromBuffer(reason, 0, reason.byteLength);
+				const decodedReason = readString(reader) || '';
+				callWithErrorHandling(() => serverActions!.disconnected!(code, closeReason || decodedReason), () => { },
 					e => errorHandler.handleError(obj.client, e));
 			}
 
@@ -579,10 +642,8 @@ function connectClient(
 		} catch (e) {
 			errorHandler.handleError(obj.client, e);
 		}
-	}
+	};
 
-	socket.on('error', e => errorHandler.handleError(obj.client, e));
-	socket.on('close', close);
 
 	Promise.resolve(server.createServer(obj.client))
 		.then(actions => {

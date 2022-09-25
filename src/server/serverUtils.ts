@@ -1,12 +1,11 @@
-import { IncomingMessage } from 'http';
 import { parse as parseUrl } from 'url';
-import * as ws from 'ws';
 import { InternalServer, ServerOptions, Token } from './serverInterfaces';
 import { parseRateLimit, isBinaryOnlyPacket } from '../common/utils';
 import { OriginalRequest, ErrorHandler } from './server';
 import { getMethods } from '../common/method';
 import { MethodDef, MethodOptions, ClientOptions, RateLimitDef, RateLimit } from '../common/interfaces';
 import { getSocketMetadata } from './serverMethod';
+import { HttpRequest } from 'uWebSockets.js';
 
 const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_';
 
@@ -70,16 +69,15 @@ export function hasToken(server: InternalServer, id: any) {
 	return server.freeTokens.has(id) || server.clientsByToken.has(id);
 }
 
-export function createOriginalRequest(
-	socket: ws & { upgradeReq?: IncomingMessage; }, request: IncomingMessage | undefined
-): OriginalRequest {
-	if (request) {
-		return { url: request.url || '', headers: request.headers };
-	} else if (socket.upgradeReq) {
-		return { url: socket.upgradeReq.url || '', headers: socket.upgradeReq.headers };
-	} else {
-		return { url: '', headers: {} };
-	}
+export function createOriginalRequest(request: HttpRequest): OriginalRequest {
+	const originalRequest: OriginalRequest = {
+		url: `${request.getUrl()}?${request.getQuery()}`,
+		headers: {}
+	};
+	request.forEach((key, value) => {
+		originalRequest.headers[key] = value;
+	});
+	return originalRequest;
 }
 
 export function createClientOptions<TServer, TClient>(
@@ -87,13 +85,13 @@ export function createClientOptions<TServer, TClient>(
 	clientType: new (...args: any[]) => TClient,
 	options?: ServerOptions
 ) {
-	return toClientOptions(optionsWithDefaults(createServerOptions(serverType, clientType, options)));
+	return toClientOptions(optionsWithDefaults(createServerOptions(serverType, clientType, options as any)));
 }
 
 export function createServerOptions(serverType: Function, clientType: Function, options?: ServerOptions) {
 	const client = getMethodsFromType(clientType);
 	const server = getMethodsFromType(serverType);
-	return { client, server, ...getSocketMetadata(serverType), ...options };
+	return { client, server, ...getSocketMetadata(serverType), ...options } as ServerOptions;
 }
 
 export function optionsWithDefaults(options: ServerOptions): ServerOptions {

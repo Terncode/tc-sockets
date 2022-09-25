@@ -12,8 +12,8 @@ describe('PacketHandler', () => {
 
 	beforeEach(() => {
 		handler = createPacketHandler(
-			['x', ['foo', { binary: [Bin.U8] }], 'abc'],
-			['y', ['bar', { binary: [Bin.U8] }]], {}, () => { });
+			[['x', {}], ['foo', { binary: [Bin.U8] }], ['abc', {}]],
+			[['y', {}], ['bar', { binary: [Bin.U8] }]], {}, () => { });
 	});
 
 	describe('sendString()', () => {
@@ -120,11 +120,12 @@ describe('PacketHandler', () => {
 
 			assert.calledWith(foo, 8);
 		});
-
-		it('throws if binary handler is missing', () => {
-			expect(() => handler.recvBinary({}, createBinaryReader(new Uint8Array([2, 8])), [], 1))
-				.throw('Missing binary decoder for: abc (2)');
-		});
+    
+        // forced binary
+		// it('throws if binary handler is missing', () => {
+		// 	expect(() => handler.recvBinary({}, createBinaryReader(new Uint8Array([2, 8])), [], 1))
+		// 		.throw('Missing binary decoder for: abc (2)');
+		// });
 
 		it('calls handle function with all parameters', () => {
 			const handleResult = spy();

@@ -1,10 +1,10 @@
-import { ServerOptions } from './serverInterfaces';
+import { PartialServerOptions, ServerOptions } from './serverInterfaces';
 
 const socketServerMetadata = new Map<Function, ServerOptions>();
 
-export function Socket(options: ServerOptions = {}) {
+export function Socket(options: PartialServerOptions = ({} as any)) {
 	return function (target: Function) {
-		socketServerMetadata.set(target, options);
+		socketServerMetadata.set(target, options as any);
 	};
 }
 
