@@ -1,24 +1,20 @@
-# ag-sockets
+# ts-sockets
 
 Library for communication via WebSockets
 
 ## Installation
 
 ```bash
-npm i "https://github.com/Terncode/tc-sockets#uws.js" # From my experience this command takes really long time 
+npm i "https://github.com/Terncode/tc-sockets#uws.js-dist" # From my experience this command takes really long time 
 ```
 
 ## Usage
 
-### Using with [µWebSockets](https://github.com/uNetworking/uWebSockets.js)
-
-```
-npm install uws
-```
+The following code only works with typescript
 
 ```typescript
 import * as uws from 'uws';
-import { createServer } from 'ag-sockets';
+import { createServer } from 'ts-sockets/src/index';
 
 // ...
 const wsServer = createServer({ arrayBuffer: true, port: 3000 });
@@ -31,7 +27,7 @@ const wsServer = createServer({ arrayBuffer: true, port: 3000 });
 ```typescript
 // interfaces.ts
 
-import { SocketClient, SocketServer } from 'ag-sockets';
+import { SocketClient, SocketServer } from 'ts-sockets/src/index';
 
 export interface IExampleClient extends SocketClient {
   message(name: string, message: string);
@@ -39,7 +35,7 @@ export interface IExampleClient extends SocketClient {
 
 export interface IExampleServer extends SocketServer {
   connected(): void;
-  diconnected(): void;
+  disconnected(): void;
   broadcast(message: string): void;
   setName(name: string): void;
 }
@@ -50,7 +46,7 @@ export interface IExampleServer extends SocketServer {
 ```typescript
 // client.ts
 
-import { Method } from 'ag-sockets';
+import { Method } from 'ts-sockets/src/index';
 import { IExampleClient, IExampleServer } from './interfaces';
 
 export class ExampleClient implements IExampleClient {
@@ -72,7 +68,7 @@ export class ExampleClient implements IExampleClient {
 ```typescript
 // server.ts
 
-import { Method, Socket, ClientExtensions } from 'ag-sockets';
+import { Method, Socket, ClientExtensions } from 'ts-sockets/src/index';
 import { IExampleClient, IExampleServer } from './interfaces';
 
 const clients: ExampleClient[] = [];
@@ -103,7 +99,7 @@ export class ExampleServer implements IExampleServer {
 
 ```typescript
 import * as http from 'http';
-import { createServer } from 'ag-sockets';
+import { createServer } from 'ts-sockets/src/index';
 import { ExampleClient } from './client';
 import { ExampleServer } from './server';
 
@@ -118,7 +114,7 @@ server.listen(12345, () => console.log('server listening...'));
 #### Connect client
 
 ```typescript
-import { createClientSocket } from 'ag-sockets';
+import { createClientSocket } from 'ts-sockets/src/index';
 import { ExampleClient } from './client';
 import { IExampleClient, IExampleServer } from './interfaces';
 

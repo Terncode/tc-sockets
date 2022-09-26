@@ -3,6 +3,7 @@
 /dist/test
 /dist/demo
 /resources
+/src
 /coverage
 /coverage-remapped
 /typings

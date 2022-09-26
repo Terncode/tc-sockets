@@ -1,5 +1,5 @@
 {
-  "name": "ag-sockets",
+  "name": "ts-sockets",
   "version": "9.2.4",
   "description": "Library for communication via WebSockets",
   "main": "dist/index.js",
@@ -7,7 +7,7 @@
   "typings": "dist/index.d.ts",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Agamnentzar/ag-sockets"
+    "url": "https://github.com/Terncode/tc-sockets"
   },
   "scripts": {
     "test": "gulp test",
@@ -29,9 +29,6 @@
   "keywords": [
     "websocket"
   ],
-  "peerDependencies": {
-    "ws": "*"
-  },
   "devDependencies": {
     "@types/express": "^4.17.13",
     "@types/mocha": "^9.1.1",
