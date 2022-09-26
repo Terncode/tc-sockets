@@ -532,8 +532,9 @@ function createCreateRemoteHandler(methodsDef: MethodDef[], handlerOptions: Hand
 								}
 								const buffer = getBuffer(writer, handlerOptions.useBuffer as any);
 								send(buffer);
-								state.sentSize += getBufferLen(buffer, handlerOptions.useBuffer as any);
-								onSend(i, name, getBufferLen(buffer, handlerOptions.useBuffer as any), true);
+								const bufLen = getBufferLen(buffer, handlerOptions.useBuffer as any);
+								state.sentSize += bufLen;
+								onSend(i, name, bufLen, true);
 								return true;
 							} catch (error) {
 								if (isSizeError(error)) {
