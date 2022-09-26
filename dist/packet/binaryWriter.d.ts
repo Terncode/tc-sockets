@@ -1,0 +1,31 @@
+export interface BinaryWriter {
+    view: DataView;
+    offset: number;
+}
+export declare function createBinaryWriter(bufferOrSize?: ArrayBuffer | Uint8Array | number): BinaryWriter;
+export declare function writeBoolean(writer: BinaryWriter, value: boolean): void;
+export declare function writeString(writer: BinaryWriter, value: string | null): void;
+export declare function writeObject(writer: BinaryWriter, value: any): void;
+export declare function writeUint8Array(writer: BinaryWriter, value: Uint8Array | null): void;
+export declare function writeArrayBuffer(writer: BinaryWriter, value: ArrayBuffer | null): void;
+export declare function writeArrayHeader<T>(writer: BinaryWriter, value: T[] | null): value is T[];
+export declare function writeArray<T>(writer: BinaryWriter, value: T[] | null, writeOne: (writer: BinaryWriter, item: T) => void): void;
+export declare function writeLength(writer: BinaryWriter, value: number): void;
+export declare function getWriterBuffer({ view, offset }: BinaryWriter): Uint8Array;
+export declare function resetWriter(writer: BinaryWriter): void;
+export declare function resizeWriter(writer: BinaryWriter): void;
+export declare function writeInt8(writer: BinaryWriter, value: number): void;
+export declare function writeUint8(writer: BinaryWriter, value: number): void;
+export declare function writeInt16(writer: BinaryWriter, value: number): void;
+export declare function writeUint16(writer: BinaryWriter, value: number): void;
+export declare function writeInt32(writer: BinaryWriter, value: number): void;
+export declare function writeUint32(writer: BinaryWriter, value: number): void;
+export declare function writeFloat32(writer: BinaryWriter, value: number): void;
+export declare function writeFloat64(writer: BinaryWriter, value: number): void;
+export declare function writeBytesRange(writer: BinaryWriter, value: Uint8Array, offset: number, length: number): void;
+export declare function writeBytesRangeView(writer: BinaryWriter, value: DataView, offset: number, length: number): void;
+export declare function writeBytes(writer: BinaryWriter, value: Uint8Array): void;
+export declare function writeStringValue(writer: BinaryWriter, value: string): void;
+export declare function writeAny(writer: BinaryWriter, value: any, strings: Map<string, number>): void;
+export declare function isSizeError(e: Error): boolean;
+export declare function writeWithResize(writer: BinaryWriter, write: () => void): void;

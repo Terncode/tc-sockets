@@ -1,0 +1,25 @@
+import { InternalServer, ServerOptions, Token } from './serverInterfaces';
+import { OriginalRequest, ErrorHandler } from './server';
+import { MethodDef, ClientOptions, RateLimitDef, RateLimit } from '../common/interfaces';
+import { HttpRequest } from 'uWebSockets.js';
+export declare function randomString(length: number): string;
+export declare const defaultErrorHandler: ErrorHandler;
+export declare function getMethodsFromType(ctor: Function): MethodDef[];
+export declare function returnTrue(): boolean;
+export declare function createToken(server: InternalServer, data?: any): Token;
+export declare function getToken(server: InternalServer, id: string): Token | null;
+export declare function getTokenFromClient(server: InternalServer, id: string): Token | undefined;
+export declare function hasToken(server: InternalServer, id: any): boolean;
+export declare function createOriginalRequest(request: HttpRequest): OriginalRequest;
+export declare function createClientOptions<TServer, TClient>(serverType: new (...args: any[]) => TServer, clientType: new (...args: any[]) => TClient, options?: ServerOptions): ClientOptions;
+export declare function createServerOptions(serverType: Function, clientType: Function, options?: ServerOptions): ServerOptions;
+export declare function optionsWithDefaults(options: ServerOptions): ServerOptions;
+export declare function getBinaryOnlyPackets(client: MethodDef[]): any;
+export declare function toClientOptions(options: ServerOptions): ClientOptions;
+export declare function parseRateLimitDefOptions(method: MethodDef): RateLimitDef | undefined;
+export declare function parseRateLimitDef(method: MethodDef): RateLimitDef | undefined;
+export declare function createRateLimit(def: RateLimitDef | undefined): RateLimit | undefined;
+export declare function getQuery(url: string | undefined): {
+    [key: string]: string | string[] | undefined;
+};
+export declare function callWithErrorHandling(action: () => any, onSuccess: () => void, onError: (e: Error) => void): void;

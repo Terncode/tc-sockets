@@ -2,10 +2,12 @@
 
 Library for communication via WebSockets
 
+This branch contains dist files. Check other branches for source 
 ## Installation
 
 ```bash
-npm i "https://github.com/Terncode/tc-sockets#uws.js-dist" # From my experience this command takes really long time 
+# From my experience this command takes really long time 
+npm i "https://github.com/Terncode/tc-sockets#uws.js-dist" 
 ```
 
 ## Usage
@@ -13,11 +15,10 @@ npm i "https://github.com/Terncode/tc-sockets#uws.js-dist" # From my experience 
 The following code only works with typescript
 
 ```typescript
-import * as uws from 'uws';
-import { createServer } from 'ts-sockets/src/index';
+import { createServer } from 'ts-sockets';
 
 // ...
-const wsServer = createServer({ arrayBuffer: true, port: 3000 });
+const wsServer = createServer({ arrayBuffer: true, port: 12345 });
 ```
 
 ### Set up sockets
@@ -27,7 +28,7 @@ const wsServer = createServer({ arrayBuffer: true, port: 3000 });
 ```typescript
 // interfaces.ts
 
-import { SocketClient, SocketServer } from 'ts-sockets/src/index';
+import { SocketClient, SocketServer } from 'ts-sockets';
 
 export interface IExampleClient extends SocketClient {
   message(name: string, message: string);
@@ -46,7 +47,7 @@ export interface IExampleServer extends SocketServer {
 ```typescript
 // client.ts
 
-import { Method } from 'ts-sockets/src/index';
+import { Method } from 'ts-sockets';
 import { IExampleClient, IExampleServer } from './interfaces';
 
 export class ExampleClient implements IExampleClient {
@@ -68,7 +69,7 @@ export class ExampleClient implements IExampleClient {
 ```typescript
 // server.ts
 
-import { Method, Socket, ClientExtensions } from 'ts-sockets/src/index';
+import { Method, Socket, ClientExtensions } from 'ts-sockets';
 import { IExampleClient, IExampleServer } from './interfaces';
 
 const clients: ExampleClient[] = [];
@@ -97,24 +98,52 @@ export class ExampleServer implements IExampleServer {
 
 #### Start server
 
+### With node http server
 ```typescript
 import * as http from 'http';
-import { createServer } from 'ts-sockets/src/index';
+import { createServer } from 'ts-sockets';
 import { ExampleClient } from './client';
 import { ExampleServer } from './server';
 
 const server = http.createServer();
-const wsServer = createServer(server, ExampleServer, ExampleClient, client => new Server(client));
 
+const wsServer = createServer(ExampleServer, ExampleClient, client => new Server(client), {
+  port: 12346, // Note you need dedicated port to run sockets
+});
 // pass 'wsServer.options()' to client side
 
 server.listen(12345, () => console.log('server listening...'));
 ```
 
+### With uws app http server
+```typescript
+import { App } from 'ts-sockets/uws';
+import { createServer } from 'ts-sockets';
+import { ExampleClient } from './client';
+import { ExampleServer } from './server';
+
+const app = App();
+
+const server = http.createServer(app);
+const wsServer = createServer(ExampleServer, ExampleClient, client => new Server(client), {
+  app
+});
+// pass 'wsServer.options()' to client side
+
+app.listen(12345, (token) => {
+  if (token) {
+    console.log('server listening')
+  } else {
+    console.log('Failed to start')
+    process.exit(1);
+  }
+});
+```
+
 #### Connect client
 
 ```typescript
-import { createClientSocket } from 'ts-sockets/src/index';
+import { createClientSocket } from 'ts-sockets/';
 import { ExampleClient } from './client';
 import { IExampleClient, IExampleServer } from './interfaces';
 
