@@ -11,6 +11,7 @@ export declare function getToken(server: InternalServer, id: string): Token | nu
 export declare function getTokenFromClient(server: InternalServer, id: string): Token | undefined;
 export declare function hasToken(server: InternalServer, id: any): boolean;
 export declare function createOriginalRequest(request: HttpRequest): OriginalRequest;
+export declare function getFullUrl(request: HttpRequest): string;
 export declare function createClientOptions<TServer, TClient>(serverType: new (...args: any[]) => TServer, clientType: new (...args: any[]) => TClient, options?: ServerOptions): ClientOptions;
 export declare function createServerOptions(serverType: Function, clientType: Function, options?: ServerOptions): ServerOptions;
 export declare function optionsWithDefaults(options: ServerOptions): ServerOptions;
