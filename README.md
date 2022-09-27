@@ -1,6 +1,6 @@
 # ts-sockets
 
-Library for communication via WebSockets
+Library for communication via WebSockets. This project uses [uWebSockets.js](https://github.com/uNetworking/uWebSockets.js/)
 
 ## Installation
 
@@ -109,7 +109,6 @@ const server = http.createServer();
 const wsServer = createServer(ExampleServer, ExampleClient, client => new Server(client), {
   port: 12346, // Note you need dedicated port to run sockets
 });
-// pass 'wsServer.options()' to client side
 
 server.listen(12345, () => console.log('server listening...'));
 ```
@@ -127,7 +126,6 @@ const server = http.createServer(app);
 const wsServer = createServer(ExampleServer, ExampleClient, client => new Server(client), {
   app
 });
-// pass 'wsServer.options()' to client side
 
 app.listen(12345, (token) => {
   if (token) {
@@ -174,13 +172,16 @@ export const enum Bin {
 class Client {
 	@Method({ binary: [Bin.I32, Bin.Str] })
 	foo(a: number, b: string) {
-	}
+	
+  }
 	@Method({ binary: [[Bin.I32], [Bin.I32, Bin.I32, Bin.I32]] })
 	bar(a: number[], b: [number, number, number][]) {
-	}
+	
+  }
 	@Method({ binary: [[Bin.F32], Bin.Obj] })
 	boo(a: number[], b: any) {
-	}
+	
+  }
 }
 ```
 
