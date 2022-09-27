@@ -71,13 +71,16 @@ export function hasToken(server: InternalServer, id: any) {
 
 export function createOriginalRequest(request: HttpRequest): OriginalRequest {
 	const originalRequest: OriginalRequest = {
-		url: `${request.getUrl()}?${request.getQuery()}`,
+		url: getFullUrl(request),
 		headers: {}
 	};
 	request.forEach((key, value) => {
 		originalRequest.headers[key] = value;
 	});
 	return originalRequest;
+}
+export function getFullUrl(request: HttpRequest) {
+	return `${request.getUrl()}?${request.getQuery()}`;
 }
 
 export function createClientOptions<TServer, TClient>(

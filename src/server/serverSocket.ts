@@ -7,7 +7,7 @@ import {
 } from './serverInterfaces';
 import {
 	hasToken, createToken, getToken, getTokenFromClient, returnTrue, createOriginalRequest, defaultErrorHandler,
-	createServerOptions, optionsWithDefaults, toClientOptions, getQuery, callWithErrorHandling, parseRateLimitDef,
+	createServerOptions, optionsWithDefaults, toClientOptions, getQuery, callWithErrorHandling, parseRateLimitDef, getFullUrl,
 } from './serverUtils';
 import { BinaryReader, createBinaryReaderFromBuffer, getBinaryReaderBuffer, readString } from '../packet/binaryReader';
 import { App, DISABLED, HttpRequest, SHARED_COMPRESSOR, us_listen_socket, us_listen_socket_close, WebSocket } from 'uWebSockets.js';
@@ -157,9 +157,9 @@ export function createServerHost(globalConfig: GlobalConfig): ServerHost {
 		throw new Error(`No server for given id (${id})`);
 	}
 
-	function verifyClient(req : HttpRequest, next: (result: any, code: number, name: string) => void) {
+	function verifyClient(req: HttpRequest, next: (result: any, code: number, name: string) => void) {
 		try {
-			const query = getQuery(req.getUrl());
+			const query = getQuery(getFullUrl(req));
 			const server = getServer(query.id);
 
 			if (!server.verifyClient(req)) {
