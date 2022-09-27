@@ -272,6 +272,7 @@ function createInternalServer(
 		tokenLifetime: options.tokenLifetime ?? 0,
 		clientLimit: options.clientLimit ?? 0,
 		transferLimit: options.transferLimit ?? 0,
+		backpressureLimit: options.backpressureLimit ?? 1024,
 		verifyClient: options.verifyClient ?? returnTrue,
 		createClient: options.createClient,
 		serverMethods: options.server!,
@@ -452,6 +453,7 @@ function connectClient(
 			tokenData: token ? token.data : undefined,
 			originalRequest: server.keepOriginalRequest ? originalRequest : undefined,
 			transferLimit: server.transferLimit,
+			backpressureLimit: server.backpressureLimit,
 			isConnected() {
 				return isConnected;
 			},
@@ -488,6 +490,11 @@ function connectClient(
 	function send(data: string | Uint8Array | Buffer) {
 		if (server.errorIfNotConnected && !isConnected) {
 			errorHandler.handleError(obj.client, new Error('Not Connected'));
+		}
+
+		if (socket.getBufferedAmount() > obj.client.backpressureLimit) {
+			obj.client.disconnect(true, false, 'Exceeded buffered amount');
+			return;
 		}
 
 		if (data instanceof Buffer) {

@@ -96,6 +96,7 @@ export interface InternalServer {
 	tokenLifetime: number;
 	clientLimit: number;
 	transferLimit: number;
+	backpressureLimit: number;
 	serverMethods: MethodDef[];
 	clientMethods: string[];
 	rateLimits: (RateLimitDef | undefined)[];
@@ -124,6 +125,8 @@ export interface PartialServerOptions extends CommonOptions {
 	compression?: CompressOptions;
 	/** transfer limit (bytes per second) */
 	transferLimit?: number;
+	/** Backpressure limit */
+	backpressureLimit?: number;
 	/** custom client verification method */
 	verifyClient?: (req: HttpRequest) => boolean;
 	/** allows to modify client object */
