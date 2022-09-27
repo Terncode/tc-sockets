@@ -9,7 +9,7 @@ import {
 	hasToken, createToken, getToken, getTokenFromClient, returnTrue, createOriginalRequest, defaultErrorHandler,
 	createServerOptions, optionsWithDefaults, toClientOptions, getQuery, callWithErrorHandling, parseRateLimitDef, getFullUrl,
 } from './serverUtils';
-import { BinaryReader, createBinaryReaderFromBuffer, getBinaryReaderBuffer, readString } from '../packet/binaryReader';
+import { BinaryReader, createBinaryReaderFromBuffer, getBinaryReaderBuffer } from '../packet/binaryReader';
 import { App, DISABLED, HttpRequest, SHARED_COMPRESSOR, us_listen_socket, us_listen_socket_close, WebSocket } from 'uWebSockets.js';
 import * as HTTP from 'http';
 
@@ -625,8 +625,7 @@ function connectClient(
 			if (server.debug) log('client disconnected');
 
 			if (serverActions?.disconnected) {
-				const reader = createBinaryReaderFromBuffer(reason, 0, reason.byteLength);
-				const decodedReason = readString(reader) || '';
+				const decodedReason = Buffer.from(reason).toString();
 				callWithErrorHandling(() => serverActions!.disconnected!(code, closeReason || decodedReason), () => { },
 					e => errorHandler.handleError(obj.client, e));
 			}
