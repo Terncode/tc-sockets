@@ -9,6 +9,7 @@ export interface ClientExtensions {
     tokenData?: any;
     originalRequest?: OriginalRequest;
     transferLimit: number;
+    backpressureLimit: number;
     isConnected(): boolean;
     lastMessageTime(): number;
     disconnect(force?: boolean, invalidateToken?: boolean, reason?: string): void;
