@@ -1,4 +1,4 @@
-# ts-sockets
+# tc-sockets
 
 Library for communication via WebSockets. This project uses [uWebSockets.js](https://github.com/uNetworking/uWebSockets.js/)
 
@@ -14,7 +14,7 @@ npm i "https://github.com/Terncode/tc-sockets#uws.js-dist"
 The following code only works with typescript
 
 ```typescript
-import { createServer } from 'ts-sockets';
+import { createServer } from 'tc-sockets';
 
 // ...
 const wsServer = createServer({ arrayBuffer: true, port: 12345 });
@@ -27,7 +27,7 @@ const wsServer = createServer({ arrayBuffer: true, port: 12345 });
 ```typescript
 // interfaces.ts
 
-import { SocketClient, SocketServer } from 'ts-sockets';
+import { SocketClient, SocketServer } from 'tc-sockets';
 
 export interface IExampleClient extends SocketClient {
   message(name: string, message: string);
@@ -46,7 +46,7 @@ export interface IExampleServer extends SocketServer {
 ```typescript
 // client.ts
 
-import { Method } from 'ts-sockets';
+import { Method } from 'tc-sockets';
 import { IExampleClient, IExampleServer } from './interfaces';
 
 export class ExampleClient implements IExampleClient {
@@ -68,7 +68,7 @@ export class ExampleClient implements IExampleClient {
 ```typescript
 // server.ts
 
-import { Method, Socket, ClientExtensions } from 'ts-sockets';
+import { Method, Socket, ClientExtensions } from 'tc-sockets';
 import { IExampleClient, IExampleServer } from './interfaces';
 
 const clients: ExampleClient[] = [];
@@ -100,7 +100,7 @@ export class ExampleServer implements IExampleServer {
 ### With node http server
 ```typescript
 import * as http from 'http';
-import { createServer } from 'ts-sockets';
+import { createServer } from 'tc-sockets';
 import { ExampleClient } from './client';
 import { ExampleServer } from './server';
 
@@ -115,8 +115,8 @@ server.listen(12345, () => console.log('server listening...'));
 
 ### With uws app http server
 ```typescript
-import { App } from 'ts-sockets/uws';
-import { createServer } from 'ts-sockets';
+import { App } from 'tc-sockets/uws';
+import { createServer } from 'tc-sockets';
 import { ExampleClient } from './client';
 import { ExampleServer } from './server';
 
@@ -140,7 +140,7 @@ app.listen(12345, (token) => {
 #### Connect client
 
 ```typescript
-import { createClientSocket } from 'ts-sockets/';
+import { createClientSocket } from 'tc-sockets/';
 import { ExampleClient } from './client';
 import { IExampleClient, IExampleServer } from './interfaces';
 
