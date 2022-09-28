@@ -1,5 +1,5 @@
 import { ClientOptions, getNames, SocketServer, Logger } from '../common/interfaces';
-import { getLength, cloneDeep, checkRateLimit2 } from '../common/utils';
+import { getLength, cloneDeep, checkRateLimit2, noop } from '../common/utils';
 import { ErrorHandler, OriginalRequest } from './server';
 import { MessageType, Send, createPacketHandler, HandleResult, HandlerOptions } from '../packet/packetHandler';
 import {
@@ -10,7 +10,7 @@ import {
 	createServerOptions, optionsWithDefaults, toClientOptions, getQuery, callWithErrorHandling, parseRateLimitDef, getFullUrl,
 } from './serverUtils';
 import { BinaryReader, createBinaryReaderFromBuffer, getBinaryReaderBuffer } from '../packet/binaryReader';
-import { App, DISABLED, HttpRequest, SHARED_COMPRESSOR, us_listen_socket, us_listen_socket_close, WebSocket } from 'uWebSockets.js';
+import { App, DISABLED, HttpRequest, RecognizedString, SHARED_COMPRESSOR, us_listen_socket, us_listen_socket_close, WebSocket } from 'uWebSockets.js';
 import * as HTTP from 'http';
 
 export function createServer<TServer, TClient>(
@@ -113,9 +113,15 @@ export function createServerHost(globalConfig: GlobalConfig): ServerHost {
 			}
 			const uwsSocketEvents: UWSSocketEvents = {
 				socket: ws,
-				onClose: () => {},
-				onMessage: () => {},
-				isClosed: false,
+				close: (force: boolean, code?: number | undefined, shortMessage?: RecognizedString | undefined) => {
+					if (force) {
+						ws.close();
+					} else {
+						ws.end(code, shortMessage);
+					}
+				},
+				onClose: noop,
+				onMessage: noop,
 			};
 			connectSocket(upgradeReq, uwsSocketEvents);
 
@@ -128,7 +134,7 @@ export function createServerHost(globalConfig: GlobalConfig): ServerHost {
 		close(ws, code, message) {
 			const events = connectedSockets.get(ws)!;
 			if (events) {
-				events.isClosed = true;//
+				events.close = noop;
 				events.onClose(code, message);
 				connectedSockets.delete(ws);
 			}
@@ -183,7 +189,7 @@ export function createServerHost(globalConfig: GlobalConfig): ServerHost {
 
 	function close() {
 		servers.forEach(closeServer);
-		connectedSockets.forEach((_, socket) => socket.end());
+		connectedSockets.forEach((event) => event.close(true));
 		if (socketToken) {
 			us_listen_socket_close(socketToken);
 			socketToken = undefined;
@@ -225,9 +231,7 @@ export function createServerHost(globalConfig: GlobalConfig): ServerHost {
 
 			connectClient(server, originalRequest, errorHandler, log, socketEvents);
 		} catch (e) {
-			if (!socketEvents.isClosed) {
-				socketEvents.socket.end();
-			}
+			socketEvents.close(true);
 			errorHandler.handleError(null, e);
 		}
 	}
@@ -413,17 +417,13 @@ function connectClient(
 		if (server.debug) log('client disconnected (hash mismatch)');
 
 		socket.send(JSON.stringify([MessageType.Version, server.hash]));
-		if (!uwsSocketEvents.isClosed) {
-			socket.end();
-		}
+		uwsSocketEvents.close(true);
 		return;
 	}
 
 	if (server.connectionTokens && !token) {
 		errorHandler.handleError({ originalRequest } as any, new Error(`Invalid token: ${t}`));
-		if (!uwsSocketEvents.isClosed) {
-			uwsSocketEvents.socket.end();
-		}
+		uwsSocketEvents.close(true);
 		return;
 	}
 
@@ -471,12 +471,10 @@ function connectClient(
 				}
 
 				if (force) {
-					if (!uwsSocketEvents) {
-						socket.end();
-					}
+					uwsSocketEvents.close(true);
 				} else {
 					closeReason = reason;
-					socket.close();
+					uwsSocketEvents.close(false/* code?, reason*/);
 				}
 			},
 		}, send),
@@ -659,7 +657,7 @@ function connectClient(
 			}
 		})
 		.catch(e => {
-			socket.terminate();
+			uwsSocketEvents.close(true);
 			errorHandler.handleError(obj.client, e);
 		});
 }

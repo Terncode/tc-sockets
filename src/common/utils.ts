@@ -119,3 +119,5 @@ export function isBinaryOnlyPacket(method: MethodDef) {
 export function hasArrayBuffer(def: BinaryDef | Bin): boolean {
 	return Array.isArray(def) ? def.some(hasArrayBuffer) : def === Bin.Buffer;
 }
+
+export const noop = () => {};
