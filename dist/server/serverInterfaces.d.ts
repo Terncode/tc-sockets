@@ -2,7 +2,7 @@
 import { ClientOptions, SocketServer, Logger, MethodDef, CommonOptions, OnSend, OnRecv, RateLimitDef } from '../common/interfaces';
 import { SocketServerClient, ErrorHandler } from './server';
 import { Send, PacketHandler } from '../packet/packetHandler';
-import { CompressOptions, HttpRequest, TemplatedApp, WebSocket } from 'uWebSockets.js';
+import { CompressOptions, HttpRequest, RecognizedString, TemplatedApp, WebSocket } from 'uWebSockets.js';
 export interface Token {
     id: string;
     data?: any;
@@ -132,10 +132,13 @@ export interface PartialServerOptions extends CommonOptions {
     server?: MethodDef[];
 }
 export declare type ServerOptions = PartialServerOptions & (PortOption | ServerAppOption);
+declare type ForceCloseFn = ((force: false, code?: number | undefined, shortMessage?: RecognizedString | undefined) => void);
+declare type GracefulCloseFn = ((force: true, code?: undefined, shortMessage?: undefined) => void);
+declare type CloseFn = ((force: boolean, code?: undefined, shortMessage?: undefined) => void);
 export interface UWSSocketEvents {
     socket: WebSocket;
     onMessage: (message: ArrayBuffer, isBinary: boolean) => void;
+    close: CloseFn & ForceCloseFn & GracefulCloseFn;
     onClose: (code: number, message: ArrayBuffer) => void;
-    isClosed: boolean;
 }
 export {};

@@ -17,3 +17,4 @@ export interface Deferred<T> {
 export declare function deferred<T>(): Deferred<T>;
 export declare function isBinaryOnlyPacket(method: MethodDef): boolean | undefined;
 export declare function hasArrayBuffer(def: BinaryDef | Bin): boolean;
+export declare const noop: () => void;
