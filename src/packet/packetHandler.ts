@@ -21,7 +21,7 @@ interface AllocatorFunction extends Allocator {
 	(...args: any): any;
 }
 
-function readBytesRaw(reader: BinaryReader) {
+export function readBytesRaw(reader: BinaryReader) {
 	const length = reader.view.byteLength - (reader.view.byteOffset + reader.offset);
 	return readBytes(reader, length);
 }
@@ -199,7 +199,7 @@ export interface HandlerOptions {
 	onRecv?: OnRecv;
 }
 
-type CreateRemoteHandler = (
+export type CreateRemoteHandler = (
 	remote: any, send: Send, state: RemoteState, options: RemoteOptions, writer: BinaryWriter,
 ) => any;
 
@@ -212,8 +212,13 @@ export interface PacketHandler {
 	writerBufferSize(): number;
 }
 
+export interface CustomPacketHandlers {
+	createRemoteHandler: (methodsDef: MethodDef[], handlerOptions: HandlerOptions) => CreateRemoteHandler;
+	createLocalHandler: (methodsDef: MethodDef[], remoteNames: string[], onRecv: OnRecv, useBinaryResultByDefault?: boolean) => PacketHandler['recvBinary'];
+}
+
 export function createPacketHandler(
-	local: MethodDef[] | undefined, remote: MethodDef[] | undefined, options: HandlerOptions, log: Logger
+	local: MethodDef[] | undefined, remote: MethodDef[] | undefined, options: HandlerOptions, log: Logger, customHandlers?: CustomPacketHandlers
 ): PacketHandler {
 	if (!local || !remote) throw new Error('Missing server or client method definitions');
 	if (local.length > 250 || remote.length > 250) throw new Error('Too many methods');
@@ -231,8 +236,11 @@ export function createPacketHandler(
 		.filter(x => x.binary)
 		.map(x => x.name));
 	const ignorePackets = new Set([...getIgnore(remote), ...getIgnore(local)]);
-	const recvBinary = createLocalHandler(local, remoteNames, onRecv, options.useBinaryByDefault);
-	const createRemoteHandler = createCreateRemoteHandler(remote, options);
+	const createLocalHandlerFn = customHandlers?.createLocalHandler || createLocalHandler;
+	const recvBinary = createLocalHandlerFn(local, remoteNames, onRecv, options.useBinaryByDefault);
+
+	const createCreateRemoteHandlerFn = customHandlers?.createRemoteHandler || createCreateRemoteHandler;
+	const createRemoteHandler = createCreateRemoteHandlerFn(remote, options);
 	const writer = createBinaryWriter();
 	const strings = new Map();
 
@@ -287,7 +295,6 @@ export function createPacketHandler(
 	}
 
 	function createRemote(remote: any, send: Send, state: RemoteState) {
-		(globalThis as any).remote = remote;
 		createRemoteHandler(remote, send, state, options, writer);
 	}
 

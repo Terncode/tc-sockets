@@ -4,7 +4,7 @@ import * as ws from 'ws';
 import { ClientOptions, getNames, SocketServer, Logger, MethodOptions } from './interfaces';
 import { getLength, cloneDeep, checkRateLimit2 } from './utils';
 import { ErrorHandler, OriginalRequest } from './server';
-import { MessageType, Send, createPacketHandler, HandleResult, HandlerOptions } from './packet/packetHandler';
+import { MessageType, Send, createPacketHandler, HandleResult, HandlerOptions, CustomPacketHandlers } from './packet/packetHandler';
 import {
 	Server, ClientState, InternalServer, GlobalConfig, ServerHost, CreateServerMethod, CreateServer, ServerOptions
 } from './serverInterfaces';
@@ -21,14 +21,15 @@ export function createServer<TServer, TClient>(
 	createServer: CreateServer<TServer, TClient>,
 	options?: ServerOptions,
 	errorHandler?: ErrorHandler,
-	log?: Logger
+	log?: Logger,
+	customPacketHandlers?: CustomPacketHandlers,
 ) {
-	return createServerRaw(httpServer, createServer, createServerOptions(serverType, clientType, options), errorHandler, log);
+	return createServerRaw(httpServer, createServer, createServerOptions(serverType, clientType, options), errorHandler, log, customPacketHandlers);
 }
 
 export function createServerRaw(
 	httpServer: HttpServer | undefined, createServer: CreateServerMethod, options: ServerOptions,
-	errorHandler?: ErrorHandler, log?: Logger
+	errorHandler?: ErrorHandler, log?: Logger, customPacketHandlers?: CustomPacketHandlers
 ): Server {
 	const host = createServerHost(httpServer, {
 		path: options.path,
@@ -36,13 +37,13 @@ export function createServerRaw(
 		log,
 		ws: options.ws,
 		perMessageDeflate: options.perMessageDeflate,
-	});
+	}, customPacketHandlers!);
 	const socket = host.socketRaw(createServer, { id: 'socket', ...options });
 	socket.close = host.close;
 	return socket;
 }
 
-export function createServerHost(httpServer: HttpServer | undefined, globalConfig: GlobalConfig): ServerHost {
+export function createServerHost(httpServer: HttpServer | undefined, globalConfig: GlobalConfig, customPacketHandlers?: CustomPacketHandlers): ServerHost {
 	const wsLibrary = (globalConfig.ws || require('ws')) as any as typeof ws;
 	const {
 		path = '/ws',
@@ -132,8 +133,8 @@ export function createServerHost(httpServer: HttpServer | undefined, globalConfi
 		return socketRaw(createServer, options);
 	}
 
-	function socketRaw(createServer: CreateServerMethod, options: ServerOptions): Server {
-		const internalServer = createInternalServer(createServer, { ...options, path }, errorHandler, log);
+	function socketRaw(createServer: CreateServerMethod, options: ServerOptions,): Server {
+		const internalServer = createInternalServer(createServer, { ...options, path }, errorHandler, log, customPacketHandlers);
 
 		if (servers.some(s => s.id === internalServer.id)) {
 			throw new Error('Cannot open two sokets with the same id');
@@ -181,7 +182,7 @@ export function createServerHost(httpServer: HttpServer | undefined, globalConfi
 }
 
 function createInternalServer(
-	createServer: CreateServerMethod, options: ServerOptions, errorHandler: ErrorHandler, log: Logger,
+	createServer: CreateServerMethod, options: ServerOptions, errorHandler: ErrorHandler, log: Logger, customPacketHandlers?: CustomPacketHandlers
 ): InternalServer {
 	options = optionsWithDefaults(options);
 
@@ -198,7 +199,7 @@ function createInternalServer(
 		useBuffer: true,
 	};
 
-	const packetHandler = createPacketHandler(options.server, options.client, handlerOptions, log);
+	const packetHandler = createPacketHandler(options.server, options.client, handlerOptions, log, customPacketHandlers);
 	const clientOptions = toClientOptions(options);
 	const clientMethods = getNames(options.client!);
 	const serverMethodOptions: MethodOptions[] = options.server!.map(m => Array.isArray(m) ? m[1] : {});

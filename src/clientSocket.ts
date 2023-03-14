@@ -2,7 +2,7 @@ import {
 	SocketService, SocketServer, SocketClient, ClientOptions, FuncList, MethodOptions, Logger, RateLimitDef
 } from './interfaces';
 import { supportsBinary as isSupportingBinary, Deferred, deferred, queryString, parseRateLimit, checkRateLimit2 } from './utils';
-import { PacketHandler, createPacketHandler } from './packet/packetHandler';
+import { PacketHandler, createPacketHandler, CustomPacketHandlers } from './packet/packetHandler';
 import { createBinaryReaderFromBuffer } from './packet/binaryReader';
 
 export interface ClientErrorHandler {
@@ -21,6 +21,7 @@ export function createClientSocket<TClient extends SocketClient, TServer extends
 	errorHandler: ClientErrorHandler = defaultErrorHandler,
 	apply: (f: () => any) => void = f => f(),
 	log: Logger = console.log.bind(console),
+	customHandlers: CustomPacketHandlers | undefined = undefined
 ): SocketService<TClient, TServer> {
 	const special: FuncList = {};
 	const defers = new Map<number, Deferred<any>>();
@@ -122,7 +123,7 @@ export function createClientSocket<TClient extends SocketClient, TServer extends
 
 		window.addEventListener('beforeunload', beforeunload);
 
-		packet = createPacketHandler(options.client, options.server, options, log);
+		packet = createPacketHandler(options.client, options.server, options, log, customHandlers);
 
 		remote = {};
 		packet.createRemote(remote, send, clientSocket);
