@@ -1,14 +1,15 @@
-# ag-sockets
+# tc-sockets
 
-[![Build Status](https://travis-ci.org/Agamnentzar/ag-sockets.svg)](https://travis-ci.org/Agamnentzar/ag-sockets)
-[![npm version](https://badge.fury.io/js/ag-sockets.svg)](https://badge.fury.io/js/ag-sockets)
+* This repository is a fork of [ag-sockets](https://github.com/Agamnentzar/ag-sockets)
+
 
 Library for communication via WebSockets
+
+This forks adds ability to to run the library without code generator therefor it should be safe to run it without `unsafe-eval` in `CSP`
 
 ## Installation
 
 ```bash
-npm install ag-sockets
 npm install ws # peer dependency
 ```
 
@@ -22,10 +23,20 @@ npm install uws
 
 ```typescript
 import * as uws from 'uws';
-import { createServer } from 'ag-sockets';
-
+import { createServer } from 'tc-sockets';
 // ...
 const wsServer = createServer(..., { ws: uws, arrayBuffer: true });
+
+```
+
+if for whatever reason you need to have code generator code
+```typescript
+import * as uws from 'uws';
+import { createServer } from 'tc-sockets';
+import { createCodeGenHandlers } from 'tc-sockets/dist/codeGenHandler';
+// ...
+
+const wsServer = createServer(..., { ws: uws, arrayBuffer: true }, undefined, undefined, createCodeGenHandler());
 ```
 
 ### Set up sockets
@@ -35,7 +46,7 @@ const wsServer = createServer(..., { ws: uws, arrayBuffer: true });
 ```typescript
 // interfaces.ts
 
-import { SocketClient, SocketServer } from 'ag-sockets';
+import { SocketClient, SocketServer } from 'tc-sockets';
 
 export interface IExampleClient extends SocketClient {
   message(name: string, message: string);
@@ -54,7 +65,7 @@ export interface IExampleServer extends SocketServer {
 ```typescript
 // client.ts
 
-import { Method } from 'ag-sockets';
+import { Method } from 'tc-sockets';
 import { IExampleClient, IExampleServer } from './interfaces';
 
 export class ExampleClient implements IExampleClient {
@@ -76,7 +87,7 @@ export class ExampleClient implements IExampleClient {
 ```typescript
 // server.ts
 
-import { Method, Socket, ClientExtensions } from 'ag-sockets';
+import { Method, Socket, ClientExtensions } from 'tc-sockets';
 import { IExampleClient, IExampleServer } from './interfaces';
 
 const clients: ExampleClient[] = [];
@@ -107,12 +118,15 @@ export class ExampleServer implements IExampleServer {
 
 ```typescript
 import * as http from 'http';
-import { createServer } from 'ag-sockets';
+import { createServer } from 'tc-sockets';
 import { ExampleClient } from './client';
 import { ExampleServer } from './server';
+// code gen
+import { createCodeGenHandlers } from 'tc-sockets/dist/codeGenHandler';
+
 
 const server = http.createServer();
-const wsServer = createServer(server, ExampleServer, ExampleClient, client => new Server(client));
+const wsServer = createServer(server, ExampleServer, ExampleClient, client => new Server(client)/*, undefined, undefined, createCodeGenHandlers()*/);
 
 // pass 'wsServer.options()' to client side
 
@@ -122,12 +136,15 @@ server.listen(12345, () => console.log('server listening...'));
 #### Connect client
 
 ```typescript
-import { createClientSocket } from 'ag-sockets';
+import { createClientSocket } from 'tc-sockets';
 import { ExampleClient } from './client';
 import { IExampleClient, IExampleServer } from './interfaces';
+// code gen
+import { createCodeGenHandlers } from 'tc-sockets/dist/codeGenHandler';
+
 
 const options = // get 'wsServer.options()' from server side
-const service = createClientSocket<IExampleClient, IExampleServer>(options);
+const service = createClientSocket<IExampleClient, IExampleServer>(options/*, undefined, undefined, undefined, undefined, createCodeGenHandlers()*/);
 service.client = new ExampleClient(service.server);
 service.connect();
 ```

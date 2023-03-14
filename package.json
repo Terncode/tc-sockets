@@ -1,5 +1,5 @@
 {
-  "name": "ag-sockets",
+  "name": "tc-sockets",
   "version": "10.3.0",
   "description": "Library for communication via WebSockets",
   "main": "dist/index.js",
@@ -7,7 +7,7 @@
   "typings": "dist/index.d.ts",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Agamnentzar/ag-sockets"
+    "url": "https://github.com/Terncode/tc-sockets/"
   },
   "scripts": {
     "ts": "npm run clean && tsc --watch --project tsconfig.json",
@@ -25,6 +25,11 @@
   },
   "author": "Agamnentzar",
   "license": "MIT",
+  "contributors": [
+    {
+      "name": "Terncode"
+    }
+  ],
   "keywords": [
     "websocket"
   ],
