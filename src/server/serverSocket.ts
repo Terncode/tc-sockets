@@ -1,7 +1,7 @@
-import { ClientOptions, getNames, SocketServer, Logger } from '../common/interfaces';
+import { ClientOptions, getNames, SocketServer, Logger, MethodOptions } from '../common/interfaces';
 import { getLength, cloneDeep, checkRateLimit2, noop } from '../common/utils';
 import { ErrorHandler, OriginalRequest } from './server';
-import { MessageType, Send, createPacketHandler, HandleResult, HandlerOptions } from '../packet/packetHandler';
+import { MessageType, Send, createPacketHandler, HandleResult, HandlerOptions, CustomPacketHandlers } from '../packet/packetHandler';
 import {
 	Server, ClientState, InternalServer, GlobalConfig, ServerHost, CreateServerMethod, CreateServer, ServerOptions, UWSSocketEvents, ServerAppOption, PortOption
 } from './serverInterfaces';
@@ -19,14 +19,15 @@ export function createServer<TServer, TClient>(
 	createServer: CreateServer<TServer, TClient>,
 	options?: ServerOptions,
 	errorHandler?: ErrorHandler,
-	log?: Logger
+	log?: Logger,
+	customPacketHandlers?: CustomPacketHandlers
 ) {
-	return createServerRaw(createServer as CreateServerMethod, createServerOptions(serverType, clientType, options), errorHandler, log);
+	return createServerRaw(createServer as CreateServerMethod, createServerOptions(serverType, clientType, options), errorHandler, log, customPacketHandlers);
 }
 
 export function createServerRaw(
 	createServer: CreateServerMethod, options: ServerOptions,
-	errorHandler?: ErrorHandler, log?: Logger
+	errorHandler?: ErrorHandler, log?: Logger, customPacketHandlers?: CustomPacketHandlers
 ): Server {
 	const host = createServerHost({
 		path: options.path,
@@ -36,13 +37,13 @@ export function createServerRaw(
 		app: (options as ServerAppOption).app,
 		perMessageDeflate: options.perMessageDeflate,
 		compression: options.compression,
-	});
+	}, customPacketHandlers);
 	const socket = host.socketRaw(createServer, { id: 'socket', ...options });
 	socket.close = host.close;
 	return socket;
 }
 
-export function createServerHost(globalConfig: GlobalConfig): ServerHost {
+export function createServerHost(globalConfig: GlobalConfig, customPacketHandlers?: CustomPacketHandlers): ServerHost {
 	if(!(globalConfig as ServerAppOption).app && !(globalConfig as PortOption).port) {
 		throw new Error('Port or uWebSockets.js app not provided');
 	}
@@ -209,11 +210,11 @@ export function createServerHost(globalConfig: GlobalConfig): ServerHost {
 		baseOptions?: ServerOptions
 	): Server {
 		const options = createServerOptions(serverType, clientType, baseOptions);
-		return socketRaw(createServer as CreateServerMethod, options);
+		return socketRaw(createServer as CreateServerMethod, options, customPacketHandlers);
 	}
 
-	function socketRaw(createServer: CreateServerMethod, options: ServerOptions): Server {
-		const internalServer = createInternalServer(createServer, { ...options, path }, errorHandler, log);
+	function socketRaw(createServer: CreateServerMethod, options: ServerOptions, customPacketHandlers?: CustomPacketHandlers): Server {
+		const internalServer = createInternalServer(createServer, { ...options, path }, errorHandler, log, customPacketHandlers);
 
 		if (servers.some(s => s.id === internalServer.id)) {
 			throw new Error('Cannot open two sockets with the same id');
@@ -240,7 +241,7 @@ export function createServerHost(globalConfig: GlobalConfig): ServerHost {
 }
 
 function createInternalServer(
-	createServer: CreateServerMethod, options: ServerOptions, errorHandler: ErrorHandler, log: Logger,
+	createServer: CreateServerMethod, options: ServerOptions, errorHandler: ErrorHandler, log: Logger, customPacketHandlers?: CustomPacketHandlers
 ): InternalServer {
 	options = optionsWithDefaults(options);
 
@@ -255,9 +256,10 @@ function createInternalServer(
 		useBuffer: true,
 	};
 
-	const packetHandler = createPacketHandler(options.server, options.client, handlerOptions, log);
+	const packetHandler = createPacketHandler(options.server, options.client, handlerOptions, log, customPacketHandlers);
 	const clientOptions = toClientOptions(options);
 	const clientMethods = getNames(options.client!);
+	const serverMethodOptions: MethodOptions[] = options.server!.map(m => Array.isArray(m) ? m[1] : {});
 	const server: InternalServer = {
 		id: options.id ?? 'socket',
 		clients: [],
@@ -282,6 +284,7 @@ function createInternalServer(
 		serverMethods: options.server!,
 		clientMethods,
 		rateLimits: options.server!.map(parseRateLimitDef),
+		resultBinary: serverMethodOptions.map(m => m.binaryResult ?? options.useBinaryResultByDefault ?? false),
 		handleResult,
 		createServer,
 		packetHandler,
@@ -290,21 +293,29 @@ function createInternalServer(
 		tokenInterval: undefined,
 	};
 
-	function handleResult(send: Send, obj: ClientState, funcId: number, funcName: string, result: Promise<any>, messageId: number) {
+	function handleResult(send: Send, obj: ClientState, funcId: number, funcName: string, funcBinary: boolean, result: Promise<any>, messageId: number) {
 		if (result && typeof result.then === 'function') {
 			result.then(result => {
-				if (obj.client.isConnected()) {
-					packetHandler.sendString(send, `*resolve:${funcName}`, MessageType.Resolved, [funcId, messageId, result]);
+				if (!obj.client.isConnected()) return;
+
+				if (funcBinary) {
+					packetHandler.sendBinary(send, `*resolve:${funcName}`, MessageType.Resolved, funcId, messageId, result);
+				} else {
+					packetHandler.sendString(send, `*resolve:${funcName}`, MessageType.Resolved, funcId, messageId, result);
 				}
 			}, (e: Error) => {
 				e = errorHandler.handleRejection(obj.client, e) || e;
-				if (obj.client.isConnected()) {
-					packetHandler.sendString(send, `*reject:${funcName}`, MessageType.Rejected, [funcId, messageId, e ? e.message : 'error']);
+
+				if (!obj.client.isConnected()) return;
+
+				if (funcBinary) {
+					packetHandler.sendBinary(send, `*reject:${funcName}`, MessageType.Rejected, funcId, messageId, e ? e.message : 'error');
+				} else {
+					packetHandler.sendString(send, `*reject:${funcName}`, MessageType.Rejected, funcId, messageId, e ? e.message : 'error');
 				}
 			}).catch((e: Error) => errorHandler.handleError(obj.client, e));
 		}
 	}
-
 	const pingInterval = options.pingInterval;
 
 	if (pingInterval) {
@@ -509,8 +520,8 @@ function connectClient(
 		obj.lastSendTime = Date.now();
 	}
 
-	const handleResult2: HandleResult = (funcId, fundName, result, messageId) => {
-		handleResult(send, obj, funcId, fundName, result, messageId);
+	const handleResult2: HandleResult = (funcId, funcName, funcBinary, result, messageId) => {
+		handleResult(send, obj, funcId, funcName, funcBinary, result, messageId);
 	};
 
 	function serverActionsCreated(serverActions: SocketServer) {
@@ -569,18 +580,19 @@ function connectClient(
 						if (data !== undefined) {
 							server.packetHandler.recvString(data, serverActions, {}, (funcId, funcName, func, funcObj, args) => {
 								const rate = server.rateLimits[funcId];
+								const funcBinary = server.resultBinary[funcId];
 
 								// TODO: move rate limits to packet handler
 								if (checkRateLimit2(funcId, callsList, server.rateLimits)) {
-									handleResult(send, obj, funcId, funcName, func.apply(funcObj, args), messageId);
+									handleResult(send, obj, funcId, funcName, funcBinary, func.apply(funcObj, args), messageId);
 								} else if (rate && rate.promise) {
-									handleResult(send, obj, funcId, funcName, Promise.reject(new Error('Rate limit exceeded')), messageId);
+									handleResult(send, obj, funcId, funcName, funcBinary, Promise.reject(new Error('Rate limit exceeded')), messageId);
 								} else {
 									throw new Error(`Rate limit exceeded (${funcName})`);
 								}
 							});
 						} else {
-							server.packetHandler.recvBinary(serverActions, reader!, callsList, messageId, handleResult2);
+							server.packetHandler.recvBinary(reader!, serverActions, {}, callsList, messageId, handleResult2);
 						}
 					} catch (e) {
 						errorHandler.handleRecvError(obj.client, e, reader ? getBinaryReaderBuffer(reader) : data!);
@@ -600,7 +612,7 @@ function connectClient(
 
 		if (server.debug) log('client connected');
 
-		server.packetHandler.sendString(send, '*version', MessageType.Version, [server.hash]);
+		server.packetHandler.sendString(send, '*version', MessageType.Version, 0, 0, server.hash);
 		server.clients.push(obj);
 
 		if (serverActions.connected) {

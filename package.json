@@ -1,21 +1,20 @@
 {
-  "name": "ts-sockets",
-  "version": "9.2.4",
+  "name": "tc-sockets",
+  "version": "10.3.0",
   "description": "Library for communication via WebSockets",
   "main": "dist/index.js",
   "browser": "dist/browser.js",
   "typings": "dist/index.d.ts",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Terncode/tc-sockets"
+    "url": "https://github.com/Terncode/tc-sockets/"
   },
   "scripts": {
-    "test": "gulp test",
-    "build": "gulp build",
+    "ts": "npm run clean && tsc --watch --project tsconfig.json",
+    "test": "mocha --watch --timeout 10000 -R dot dist/test",
+    "build": "npm run clean && tsc --project tsconfig.json",
     "dev": "gulp dev",
-    "_ts": "tsc",
-    "_tests": "mocha dist/test/**/*.spec.js --reporter dot --exit",
-    "_coverage": "nyc --silent npm run tests && nyc report --reporter=html",
+    "clean": "node clean.js",
     "lint": "eslint -c .eslintrc.js --ext .ts src/",
     "prepublishOnly": "npm run build"
   },
@@ -26,6 +25,11 @@
   },
   "author": "Agamnentzar",
   "license": "MIT",
+  "contributors": [
+    {
+      "name": "Terncode"
+    }
+  ],
   "keywords": [
     "websocket"
   ],
@@ -39,7 +43,6 @@
     "@typescript-eslint/parser": "^5.38.0",
     "chai": "^4.3.6",
     "chai-as-promised": "^7.1.1",
-    "del": "^6.1.1",
     "eslint": "^8.24.0",
     "eslint-config-google": "^0.14.0",
     "eslint-config-standard": "^17.0.0",
@@ -47,16 +50,7 @@
     "eslint-plugin-node": "^11.1.0",
     "eslint-plugin-promise": "^6.0.1",
     "express": "^4.18.1",
-    "gulp": "^4.0.2",
-    "gulp-live-server": "0.0.31",
-    "gulp-sourcemaps": "^3.0.0",
-    "gulp-spawn-mocha": "^6.0.0",
-    "gulp-typescript": "^6.0.0-alpha.1",
-    "istanbul": "^0.4.5",
-    "merge2": "^1.4.1",
     "mocha": "^6.2.0",
-    "nyc": "^15.1.0",
-    "remap-istanbul": "^0.13.0",
     "sinon": "^14.0.0",
     "source-map": "0.8.0-beta.0",
     "source-map-support": "^0.5.21",

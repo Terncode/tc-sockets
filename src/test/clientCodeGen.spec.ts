@@ -3,11 +3,10 @@ import { expect } from 'chai';
 import { stub, spy, assert, match } from 'sinon';
 import { MessageType } from '../packet/packetHandler';
 import {
-	ClientOptions, SocketClient, SocketServer, SocketService, createClientSocket, ClientErrorHandler
+	ClientOptions, SocketClient, SocketServer, SocketService, ClientErrorHandler, createClientSocket
 } from '../index';
 import { cloneDeep } from '../common/utils';
-spy;
-match;
+import { createCodeGenHandlers } from '../codeGenHandler';
 
 let lastWebSocket: MockWebSocket;
 
@@ -87,7 +86,7 @@ describe('ClientSocket', () => {
 		lastWebSocket = null as any;
 		errorHandler = { handleRecvError() { } };
 
-		service = createClientSocket<Client, Server>(clientOptions, undefined, errorHandler);
+		service = createClientSocket<Client, Server>(clientOptions, undefined, errorHandler, undefined, undefined, createCodeGenHandlers());
 	});
 
 	describe('connectionError', () => {
@@ -183,7 +182,7 @@ describe('ClientSocket', () => {
 		it('should use "/ws" as default path', () => {
 			const options = cloneDeep(clientOptions);
 			delete options.path;
-			service = createClientSocket<Client, Server>(options);
+			service = createClientSocket<Client, Server>(options, undefined, undefined, undefined, undefined, createCodeGenHandlers());
 			service.connect();
 
 			expect(lastWebSocket.url).equal('ws://example.com/ws?foo=bar&x=5&id=socket&bin=true&hash=123');
@@ -299,9 +298,10 @@ describe('ClientSocket', () => {
 
 		it('sends data to socket', () => {
 			const send = stub(lastWebSocket, 'send');
+
 			service.server.test2();
 
-			assert.calledWith(send as any, JSON.stringify([0]));
+			assert.calledWith(send as any, '[0]');
 		});
 
 		it('rejects when rate limit is exceeded', async () => {
@@ -505,7 +505,7 @@ describe('ClientSocket', () => {
 			});
 
 			it('throws error if using default error handler', () => {
-				service = createClientSocket<Client, Server>(clientOptions);
+				service = createClientSocket<Client, Server>(clientOptions, undefined, undefined, undefined, undefined, createCodeGenHandlers());
 				service.connect();
 				lastWebSocket.onopen();
 

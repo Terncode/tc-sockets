@@ -12,6 +12,7 @@
 // import { createServerHost } from '../serverSocket';
 // import { randomString } from '../serverUtils';
 // import { ServerOptions } from '../serverInterfaces';
+// import { createCodeGenHandlers } from '../codeGenHandler';
 
 // @Socket({})
 // class Server1 {
@@ -106,12 +107,12 @@
 // 		});
 
 // 		it('is able to start server', function (done) {
-// 			createServer(server, Server1, Client1, c => new Server1(c), { path: '/test2' });
+// 			createServer(server, Server1, Client1, c => new Server1(c), { path: '/test2' }, undefined, undefined, createCodeGenHandlers());
 // 			server.listen(12345, done);
 // 		});
 
 // 		it('is able to close server', function (done) {
-// 			const socket = createServer(server, Server1, Client1, c => new Server1(c), { path: '/test2' });
+// 			const socket = createServer(server, Server1, Client1, c => new Server1(c), { path: '/test2' }, undefined, undefined, createCodeGenHandlers());
 // 			server.listen(12345, () => {
 // 				socket.close();
 // 				done();
@@ -125,26 +126,26 @@
 // 				Ctor.prototype[`foo${i}`] = () => { };
 // 			}
 
-// 			expect(() => createServer(server, Ctor, Ctor, () => null)).throw('Too many methods');
+// 			expect(() => createServer(server, Ctor, Ctor, () => null, undefined, undefined, undefined, createCodeGenHandlers())).throw('Too many methods');
 // 		});
 // 	});
 
 // 	describe('createServer() (mock) (creation)', () => {
 // 		it('createServerRaw() throws if passed empty client or server method definitions', () => {
-// 			expect(() => createServerRaw({} as any, c => new Server1(c), { ws, client: [], server: null } as any))
+// 			expect(() => createServerRaw({} as any, c => new Server1(c), { ws, client: [], server: null } as any, undefined, undefined, createCodeGenHandlers()))
 // 				.throws('Missing server or client method definitions');
-// 			expect(() => createServerRaw({} as any, c => new Server1(c), { ws, client: null, server: [] } as any))
+// 			expect(() => createServerRaw({} as any, c => new Server1(c), { ws, client: null, server: [] } as any, undefined, undefined, createCodeGenHandlers()))
 // 				.throws('Missing server or client method definitions');
 // 		});
 
 // 		it('handles server errors without error handler', () => {
-// 			createServer({} as any, Server1, Client1, c => new Server1(c), { ws });
+// 			createServer({} as any, Server1, Client1, c => new Server1(c), { ws }, undefined, undefined, createCodeGenHandlers());
 // 			getLastServer().invoke('error', new Error('test'));
 // 		});
 
 // 		it('passes request info to client if keepOriginalRequest option is true', async () => {
 // 			let server1: Server1;
-// 			createServer({} as any, Server1, Client1, c => server1 = new Server1(c), { ws, keepOriginalRequest: true, hash: '123' });
+// 			createServer({} as any, Server1, Client1, c => server1 = new Server1(c), { ws, keepOriginalRequest: true, hash: '123' }, undefined, undefined, createCodeGenHandlers());
 // 			await getLastServer().connectClient();
 
 // 			await delay(50);
@@ -154,7 +155,7 @@
 
 // 		it('does not pass request info to client if keepOriginalRequest option is not true', async () => {
 // 			let server1: Server1;
-// 			createServer({} as any, Server1, Client1, c => server1 = new Server1(c), { ws, hash: '123' });
+// 			createServer({} as any, Server1, Client1, c => server1 = new Server1(c), { ws, hash: '123' }, undefined, undefined, createCodeGenHandlers());
 // 			await getLastServer().connectClient();
 
 // 			await delay(50);
@@ -164,7 +165,7 @@
 
 // 		it('handles async creation of server actions', async () => {
 // 			let server1: Server1;
-// 			createServer({} as any, Server1, Client1, c => Promise.resolve().then(() => server1 = new Server1(c)), { ws, hash: '123' });
+// 			createServer({} as any, Server1, Client1, c => Promise.resolve().then(() => server1 = new Server1(c)), { ws, hash: '123' }, undefined, undefined, createCodeGenHandlers());
 // 			await getLastServer().connectClient();
 
 // 			await delay(50);
@@ -173,7 +174,7 @@
 // 		});
 
 // 		it('closes connection if connected() handler threw an error', async () => {
-// 			createServer({} as any, Server1, Client1, c => new ServerThrowingOnConnected(c) as any, { ws, hash: '123' });
+// 			createServer({} as any, Server1, Client1, c => new ServerThrowingOnConnected(c) as any, { ws, hash: '123' }, undefined, undefined, createCodeGenHandlers());
 
 // 			const socket = await getLastServer().connectClient();
 
@@ -188,7 +189,7 @@
 // 			beforeEach(() => {
 // 				createServer(
 // 					{} as any, Server1, Client1, c => new Server1(c), { ws, connectionTokens: true, hash: '123' },
-// 					errorHandler = emptyErrorHandler());
+// 					errorHandler = emptyErrorHandler(), undefined, createCodeGenHandlers());
 // 				webSocket = new MockWebSocket();
 // 				webSocket.upgradeReq.url = '?t=foobar&hash=123';
 // 			});
@@ -212,7 +213,7 @@
 
 // 		describe('.token()', () => {
 // 			it('returns new token string', () => {
-// 				const socketServer = createServer({} as any, Server1, Client1, c => new Server1(c), { ws, connectionTokens: true, hash: '123' });
+// 				const socketServer = createServer({} as any, Server1, Client1, c => new Server1(c), { ws, connectionTokens: true, hash: '123' }, undefined, undefined, createCodeGenHandlers());
 
 // 				expect(socketServer.token()).a('string');
 // 			});
@@ -220,7 +221,7 @@
 // 			it('passes custom token data to client', async () => {
 // 				let server1: Server1;
 // 				const data = {};
-// 				const socketServer = createServer({} as any, Server1, Client1, c => server1 = new Server1(c), { ws, connectionTokens: true, hash: '123' });
+// 				const socketServer = createServer({} as any, Server1, Client1, c => server1 = new Server1(c), { ws, connectionTokens: true, hash: '123' }, undefined, undefined, createCodeGenHandlers());
 // 				await getLastServer().connectClient(false, socketServer.token(data));
 
 // 				await delay(50);
@@ -231,13 +232,13 @@
 
 // 		describe('.clearTokens()', () => {
 // 			it('does nothing for no tokens and no clients', () => {
-// 				const socketServer = createServer({} as any, Server1, Client1, c => new Server1(c), { ws, connectionTokens: true, hash: '123' });
+// 				const socketServer = createServer({} as any, Server1, Client1, c => new Server1(c), { ws, connectionTokens: true, hash: '123' }, undefined, undefined, createCodeGenHandlers());
 
 // 				socketServer.clearTokens(() => true);
 // 			});
 
 // 			it('clears marked token', () => {
-// 				const socketServer = createServer({} as any, Server1, Client1, c => new Server1(c), { ws, connectionTokens: true, hash: '123' });
+// 				const socketServer = createServer({} as any, Server1, Client1, c => new Server1(c), { ws, connectionTokens: true, hash: '123' }, undefined, undefined, createCodeGenHandlers());
 // 				const token = socketServer.token({ remove: true });
 
 // 				socketServer.clearTokens((_, data) => data.remove);
@@ -249,7 +250,7 @@
 // 			});
 
 // 			it('does not clear not marked token', () => {
-// 				const socketServer = createServer({} as any, Server1, Client1, c => new Server1(c), { ws, connectionTokens: true, hash: '123' });
+// 				const socketServer = createServer({} as any, Server1, Client1, c => new Server1(c), { ws, connectionTokens: true, hash: '123' }, undefined, undefined, createCodeGenHandlers());
 // 				const token = socketServer.token({ remove: false });
 
 // 				socketServer.clearTokens((_, data) => data.remove);
@@ -261,7 +262,7 @@
 // 			});
 
 // 			it('disconnects client using marked token', async () => {
-// 				const socketServer = createServer({} as any, Server1, Client1, c => new Server1(c), { ws, connectionTokens: true, hash: '123' });
+// 				const socketServer = createServer({} as any, Server1, Client1, c => new Server1(c), { ws, connectionTokens: true, hash: '123' }, undefined, undefined, createCodeGenHandlers());
 // 				const token = socketServer.token({ remove: true });
 // 				const client = await getLastServer().connectClient(false, token);
 // 				const terminate = stub(client, 'terminate');
@@ -280,7 +281,7 @@
 // 			beforeEach(() => {
 // 				clock = undefined;
 // 				errorHandler = emptyErrorHandler();
-// 				createServer({} as any, Server1, Client1, c => server = new Server1(c), { ws, transferLimit: 1000, hash: '123' }, errorHandler);
+// 				createServer({} as any, Server1, Client1, c => server = new Server1(c), { ws, transferLimit: 1000, hash: '123' }, errorHandler, undefined, createCodeGenHandlers());
 // 			});
 
 // 			afterEach(() => {
@@ -380,7 +381,7 @@
 // 			onSend = stub();
 // 			onRecv = stub();
 // 			serverHost = createServerHost(
-// 				httpServer, { ws, path: '/foo', perMessageDeflate: false, errorHandler });
+// 				httpServer, { ws, path: '/foo', perMessageDeflate: false, errorHandler }, createCodeGenHandlers());
 // 			serverSocket = serverHost.socket(Server1, Client1, client => {
 // 				const s = new Server1(client);
 // 				onServer(s);
@@ -640,7 +641,7 @@
 // 		const ws = MockWebSocket as any;
 
 // 		function create(options: ServerOptions, errorHandler?: ErrorHandler) {
-// 			createServer({} as any, Server1, Client1, c => new Server1(c), { hash: '123', ...options }, errorHandler);
+// 			createServer({} as any, Server1, Client1, c => new Server1(c), { hash: '123', ...options }, errorHandler, undefined, createCodeGenHandlers());
 // 			return getLastServer();
 // 		}
 
@@ -714,4 +715,3 @@
 // 		});
 // 	});
 // });
-// >>>>>>> master

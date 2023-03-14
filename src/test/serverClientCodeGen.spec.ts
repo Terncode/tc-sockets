@@ -11,6 +11,7 @@
 // } from '../index';
 // import { ServerHost, ServerOptions } from '../serverInterfaces';
 // import { createServerHost } from '../serverSocket';
+// import { createCodeGenHandlers } from '../codeGenHandler';
 
 // const apply = (f: () => void) => f();
 
@@ -91,7 +92,7 @@
 
 // 	function setupClient(options: ClientOptions, token?: string) {
 // 		return new Promise<void>(resolve => {
-// 			clientSocket = createClientSocket<Client, Server>(options, token, undefined, apply, log);
+// 			clientSocket = createClientSocket<Client, Server>(options, token, undefined, apply, log, createCodeGenHandlers());
 // 			// version = stub((<any>clientSocket).special, '*version');
 // 			clientSocket.client = new Client();
 // 			clientSocket.client.connected = () => resolve();
@@ -104,7 +105,7 @@
 // 	) {
 // 		connected = spy();
 
-// 		serverHost = createServerHost(httpServer, { path: '/ws', ws: options.ws, errorHandler, log });
+// 		serverHost = createServerHost(httpServer, { path: '/ws', ws: options.ws, errorHandler, log }, createCodeGenHandlers());
 // 		serverSocket = serverHost.socket(Server, Client, c => {
 // 			server = new Server(c);
 // 			server.connected = connected as any;
@@ -160,7 +161,7 @@
 // 			it('connects to correct end point', async () => {
 // 				let server1: Server;
 // 				let server2: Server2;
-// 				const host = createServerHost(httpServer, { path: '/ws', ws, errorHandler, log });
+// 				const host = createServerHost(httpServer, { path: '/ws', ws, errorHandler, log }, createCodeGenHandlers());
 // 				const socket1 = host.socket(Server, Client, c => server1 = new Server(c), { id: 'socket1' });
 // 				host.socket(Server2, Client, c => server2 = new Server2(c), { id: 'socket2' });
 
@@ -333,4 +334,3 @@
 // 		});
 // 	});
 // });
-// >>>>>>> master
