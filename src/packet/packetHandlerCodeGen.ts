@@ -1,7 +1,7 @@
 // code generation
 
-import { MethodDef, OnRecv, Bin, RemoteOptions } from "../interfaces";
-import { parseRateLimit, checkRateLimit3, isBinaryOnlyPacket } from "../utils";
+import { MethodDef, OnRecv, Bin, RemoteOptions } from '../interfaces';
+import { parseRateLimit, checkRateLimit3, isBinaryOnlyPacket } from '../utils';
 import {
 	writeUint8, writeInt16, writeUint16, writeUint32, writeInt32, writeFloat64, writeFloat32, writeBoolean,
 	writeString, writeArrayBuffer, writeUint8Array, writeInt8, writeArray, writeArrayHeader,
@@ -11,7 +11,7 @@ import {
 	readInt8, readUint8, readUint16, readInt16, readUint32, readInt32, readFloat32, readFloat64, readBoolean,
 	readString, readArrayBuffer, readUint8Array, readArray, readAny, readLength, BinaryReader
 } from './binaryReader';
-import { HandleResult, HandlerOptions, MessageType, readBytesRaw, RemoteState, Send } from "./packetHandler";
+import { HandleResult, HandlerOptions, MessageType, readBytesRaw, RemoteState, Send } from './packetHandler';
 
 const binaryNames: string[] = [];
 binaryNames[Bin.I8] = 'Int8';
@@ -230,7 +230,7 @@ export function generateRemoteHandlerCode(methods: MethodDef[], handlerOptions: 
 			code += `    try {\n`;
 		}
 
-		const space = handlerOptions.debug ? '  ' : '  '; 
+		const space = handlerOptions.debug ? '  ' : '  ';
 		const indent = options.binary ? space.repeat(3) : space;
 
 		if (options.binary || handlerOptions.useBinaryByDefault) {
