@@ -15,7 +15,7 @@
     "build": "npm run clean && tsc --project tsconfig.json",
     "dev": "gulp dev",
     "clean": "node clean.js",
-    "lint": "tslint -c tslint.json src/**/*.ts",
+    "lint": "eslint -c .eslintrc.js --ext .ts src/",
     "prepublishOnly": "npm run build"
   },
   "jspm": {
