@@ -13,7 +13,7 @@ export interface SocketClient {
     [name: string]: any;
     connected?(): void;
     disconnected?(code: number, reason: string): void;
-    invalidVersion?(expected: string, actual: string): void;
+    connectionError?(error: string): void;
 }
 export interface SocketService<TClient extends SocketClient, TServer extends SocketServer> {
     client: TClient;
@@ -63,6 +63,8 @@ export interface MethodOptions {
     rateLimit?: string;
     /** rate limit for the server */
     serverRateLimit?: string;
+    /** if true the result will be sent in binary format, if false the result will be sent in json format */
+    binaryResult?: boolean;
 }
 export interface MethodMetadata {
     name: string;
@@ -77,9 +79,11 @@ export interface CommonOptions {
     /** true to force SSL websockets on non-SSL website */
     ssl?: boolean;
     /** ping interval in milliseconds, ping disabled if not specified or 0 */
-    pingInterval?: number;
+    clientPingInterval?: number;
     /** delay for client to wait before trying to reconnect in milliseconds */
     reconnectTimeout?: number;
+    /** if no packets are received for this time, the socket reconnects */
+    clientConnectionTimeout?: number;
     /** log debug information to console */
     debug?: boolean;
     /** log additional errors to console */
@@ -92,17 +96,13 @@ export interface CommonOptions {
     clientBaseId?: number;
     /** always send copy of buffer on client side */
     copySendBuffer?: boolean;
+    /** encoded all packets in binary format by default */
     useBinaryByDefault?: boolean;
+    /** encoded all response packets in binary format by default */
+    useBinaryResultByDefault?: boolean;
 }
 export declare type OnSend = (id: number, name: string, size: number, binary: boolean) => void;
 export declare type OnRecv = (id: number, name: string, size: number, binary: boolean, data?: DataView, actions?: any) => void;
-export interface Packet {
-    id: number;
-    name: string;
-    args: any[];
-    binary?: Uint8Array;
-    json?: string;
-}
 export interface ClientOptions extends CommonOptions {
     client: MethodDef[];
     server: MethodDef[];

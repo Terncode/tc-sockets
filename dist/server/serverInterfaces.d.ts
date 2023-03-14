@@ -40,15 +40,7 @@ export interface ServerHost {
     socketRaw(createServer: CreateServerMethod, options: ServerOptions): Server;
     app: TemplatedApp;
 }
-export interface PortOption {
-    /** Server port. Providing port will make library automatically handle socket connections **/
-    port: number;
-}
-export interface ServerAppOption {
-    /** Server app. Providing uWebSockets.js app if you want to manually handle listening  **/
-    app: TemplatedApp;
-}
-interface PartialGlobalConfig {
+export interface GlobalConfig {
     path?: string;
     errorHandler?: ErrorHandler;
     perMessageDeflate?: boolean;
@@ -57,8 +49,8 @@ interface PartialGlobalConfig {
     errorCode?: number;
     errorName?: string;
     nativePing?: number;
+    port?: number;
 }
-export declare type GlobalConfig = PartialGlobalConfig & (ServerAppOption | PortOption);
 export interface InternalServer {
     clients: ClientState[];
     freeTokens: Map<string, Token>;
@@ -83,14 +75,17 @@ export interface InternalServer {
     serverMethods: MethodDef[];
     clientMethods: string[];
     rateLimits: (RateLimitDef | undefined)[];
+    resultBinary: boolean[];
     verifyClient: (req: HttpRequest) => boolean;
     createClient?: (client: SocketServerClient, send: (data: string | Uint8Array | Buffer) => void) => SocketServerClient;
     createServer: CreateServerMethod;
-    handleResult: (send: Send, obj: ClientState, funcId: number, funcName: string, result: Promise<any>, messageId: number) => void;
+    handleResult: (send: Send, obj: ClientState, funcId: number, funcName: string, funcBinary: boolean, result: Promise<any>, messageId: number) => void;
     packetHandler: PacketHandler;
     server: Server;
 }
-export interface PartialServerOptions extends CommonOptions {
+export interface ServerOptions extends CommonOptions {
+    /** ping interval in milliseconds, ping disabled if not specified or 0 */
+    pingInterval?: number;
     /** time after after last message from client when server assumes client is not responding (in milliseconds) */
     connectionTimeout?: number;
     /** limit connections to one per generated token */
@@ -125,13 +120,14 @@ export interface PartialServerOptions extends CommonOptions {
     errorIfNotConnected?: boolean;
     /** prints to console generated packet handler code */
     printGeneratedCode?: boolean;
+    /** Server port. Providing port will make library automatically handle socket connections **/
+    port?: number;
     /** send/recv handlers */
     onSend?: OnSend;
     onRecv?: OnRecv;
     client?: MethodDef[];
     server?: MethodDef[];
 }
-export declare type ServerOptions = PartialServerOptions & (PortOption | ServerAppOption);
 declare type ForceCloseFn = ((force: false, code?: number | undefined, shortMessage?: RecognizedString | undefined) => void);
 declare type GracefulCloseFn = ((force: true, code?: undefined, shortMessage?: undefined) => void);
 declare type CloseFn = ((force: boolean, code?: undefined, shortMessage?: undefined) => void);
