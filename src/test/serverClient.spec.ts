@@ -1,16 +1,14 @@
-// import { delay, createKillMethod } from './common';
-// import * as http from 'http';
-// import * as WebSocket from 'ws';
-// import { WebSocketServer as ClusterWsServer } from '@encharm/cws';
+// import { delay } from './common';
 // import { expect } from 'chai';
 // import { assert, stub, spy, SinonSpy } from 'sinon';
-// import { Bin, ClientOptions, SocketService } from '../interfaces';
+// import { Bin, ClientOptions, SocketService } from '../common/interfaces';
 // import {
 // 	Socket, Method, ClientExtensions, Server as ServerController,
 // 	SocketClient, SocketServer, ErrorHandler, createClientSocket
 // } from '../index';
-// import { ServerHost, ServerOptions } from '../serverInterfaces';
-// import { createServerHost } from '../serverSocket';
+// import { ServerHost, ServerOptions } from '../server/serverInterfaces';
+// import { createServerHost } from '../server/serverSocket';
+// import { App, TemplatedApp } from '../uws';
 
 // const apply = (f: () => void) => f();
 
@@ -78,7 +76,7 @@
 // }
 
 // describe('ClientSocket + Server', () => {
-// 	let httpServer: http.Server;
+// 	let httpServer: TemplatedApp;
 // 	let killServer: (callback: () => void) => void;
 // 	let server: Server;
 // 	let serverHost: ServerHost;
@@ -104,7 +102,7 @@
 // 	) {
 // 		connected = spy();
 
-// 		serverHost = createServerHost(httpServer, { path: '/ws', ws: options.ws, errorHandler, log });
+// 		serverHost = createServerHost(App(), { path: '/ws', errorHandler, log });
 // 		serverSocket = serverHost.socket(Server, Client, c => {
 // 			server = new Server(c);
 // 			server.connected = connected as any;
@@ -124,7 +122,8 @@
 // 	function closeServerClient(done: () => void) {
 // 		clientSocket.disconnect();
 // 		serverHost.close();
-// 		killServer(done);
+// 		done();
+// 		//killServer(done);
 // 	}
 
 // 	function startListening() {
@@ -144,14 +143,14 @@
 // 			handleRejection() { },
 // 			handleRecvError() { },
 // 		};
-// 		httpServer = http.createServer();
-// 		killServer = createKillMethod(httpServer);
+// 		httpServer = App();
+// 		//killServer = createKillMethod(httpServer);
 // 	});
 
 // 	[
-// 		{ name: 'ws', ws: WebSocket },
-// 		{ name: 'clusterWS-µWS', ws: { Server: ClusterWsServer } },
-// 	].forEach(({ name, ws }) => {
+// 		// { name: 'ws', ws: WebSocket },
+// 		// { name: 'clusterWS-µWS', ws: { Server: ClusterWsServer } },
+// 	].forEach(({ name }) => {
 // 		describe(`[${name}]`, () => {
 // 			afterEach(function (done) {
 // 				killServer(done);
@@ -160,7 +159,7 @@
 // 			it('connects to correct end point', async () => {
 // 				let server1: Server;
 // 				let server2: Server2;
-// 				const host = createServerHost(httpServer, { path: '/ws', ws, errorHandler, log });
+// 				const host = createServerHost(App(), { path: '/ws',  errorHandler, log });
 // 				const socket1 = host.socket(Server, Client, c => server1 = new Server(c), { id: 'socket1' });
 // 				host.socket(Server2, Client, c => server2 = new Server2(c), { id: 'socket2' });
 
@@ -182,7 +181,7 @@
 
 // 		describe(`[${name}]`, () => {
 // 			beforeEach(function (done) {
-// 				setupServerClient(done, { ws });
+// 				setupServerClient(done);
 // 			});
 
 // 			afterEach(function (done) {
@@ -333,4 +332,3 @@
 // 		});
 // 	});
 // });
-// >>>>>>> master

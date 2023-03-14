@@ -1,25 +1,11 @@
-// import { stub } from 'sinon';
-// import { queryString } from '../common/utils';
-// import { delay } from './common';
+import { stub } from 'sinon';
 
 import { TemplatedApp, WebSocketBehavior, HttpResponse, HttpRequest, us_socket_context_t, WebSocket, RecognizedString } from 'uWebSockets.js';
-import { randomString } from '../server/serverUtils';
+import { queryString } from '../common/utils';
+const noop = (..._args: any): any => {};
 
-// let lastServer: MockWebSocketServer;
-
-// export class MockEventEmitter {
-// 	private handlers: { event: string; handler: Function; }[] = [];
-// 	on(event: string, handler: Function) {
-// 		this.handlers.push({ event, handler });
-// 		return this;
-// 	}
-// 	invoke(event: string, ...args: any[]) {
-// 		this.handlers.filter(x => x.event === event).forEach(x => x.handler(...args));
-// 	}
-// }
 
 let lastBehavior: WebSocketBehavior;
-
 export function MockApp(): TemplatedApp {
 	const mock: Partial<TemplatedApp> = {
 		ws: (_pattern, behavior) => {
@@ -27,73 +13,49 @@ export function MockApp(): TemplatedApp {
 			return mock as TemplatedApp;
 		}
 	};
-
+	(mock as any).listen = (_port: any, cb: any) => {
+		cb({} as any);
+	};
 	return mock as TemplatedApp;
 }
 
 
-export class MockWebSocket {
-	socket: WebSocket | undefined;
-
-	constructor(private lastBehavior: WebSocketBehavior) {
-
+export class MockWebSocket implements WebSocket {
+	send(_message: RecognizedString, _isBinary?: boolean, _compress?: boolean) {
+		return 1;
 	}
-
-	connect(url: string, mockSocket?: WebSocket) {
-		return new Promise<void>((resolve, reject) => {
-			const urlObj = new URL(url);
-			mockSocket = mockSocket && {
-				close() {
-					reject();
-				},
-				end() {
-					reject();
-				},
-				send(_message: RecognizedString, _isBinary?: boolean, _compress?: boolean) {
-					return 1;
-				},
-			} as WebSocket;
-			this.socket = mockSocket as WebSocket;
-			const res: Partial<HttpResponse> = {
-				upgrade() {
-					resolve();
-					this.lastBehavior.open(mockSocket);
-				}
-			};
-			const mockHeaders = new Map();
-			mockHeaders.set('connection', 'upgrade');
-			mockHeaders.set('date', new Date().toUTCString());
-			mockHeaders.set('sec-WebSocket-Accept', randomString(28));
-			mockHeaders.set('sec-webSocket-version', 13);
-			mockHeaders.set('upgrade', 'websocket');
-
-			const req: Partial<HttpRequest> = {
-				forEach(cb) {
-					mockHeaders.forEach((value, key) => {
-						cb(key, value);
-					});
-				},
-				getHeader(key: RecognizedString) {
-					return mockHeaders.get(key) || '';
-				},
-				getQuery() {
-					return urlObj.search;
-				},
-				getUrl() {
-					return urlObj.origin;
-				}
-			};
-			const context: us_socket_context_t = {
-
-			};
-			if(this.lastBehavior.upgrade) {
-				this.lastBehavior.upgrade(res as HttpResponse, req as HttpRequest, context);
-			} else if (this.lastBehavior.open) {
-				this.lastBehavior.open(mockSocket as WebSocket);
-			}
-		});
+	getBufferedAmount() {
+		return 0;
 	}
-
+	end(_code?: number, _shortMessage?: RecognizedString) {}
+	close = stub();
+	ping(_message?: RecognizedString) {
+		return 1;
+	}
+	subscribe(_topic: RecognizedString) {
+		return true;
+	}
+	unsubscribe(_topic: RecognizedString)  {
+		return true;
+	}
+	isSubscribed(_topic: RecognizedString) {
+		return false;
+	}
+	getTopics() {
+		return [];
+	}
+	publish(_topic: RecognizedString, _message: RecognizedString, _isBinary?: boolean, _compress?: boolean) {
+		return true;
+	}
+	cork(_cb: () => void) {
+		return this;
+	}
+	getRemoteAddress() {
+		return new ArrayBuffer(0);
+	}
+	getRemoteAddressAsText() {
+		return new ArrayBuffer(0);
+	}
 }
 
 export function connect() {
@@ -101,46 +63,65 @@ export function connect() {
 
 }
 
-// export class MockWebSocketServer extends MockEventEmitter {
-// 	constructor(public options: any) {
-// 		super();
-// 		lastServer = this;
-// 	}
-// 	close() { }
-// 	// mock helpers
-// 	async connectClient(bin = false, t?: string) {
-// 		const client = new MockWebSocket();
-// 		client.upgradeReq.url = `ws://test/${queryString({ bin, t, hash: '123' })}`;
-// 		this.invoke('connection', client);
-// 		await delay(1);
-// 		return client;
-// 	}
-// 	async connectWebSocket(socket: MockWebSocket) {
-// 		this.invoke('connection', socket);
-// 		return socket;
-// 	}
-// 	async connectClients(count: number) {
-// 		const result: MockWebSocket[] = [];
+export function getLastBehavior() {
+	return lastBehavior;
+}
 
-// 		for (let i = 0; i < count; i++) {
-// 			result.push(await this.connectClient());
-// 		}
+export function createUpgrade(onUpgrade?: (ws: WebSocket) => void, ws = new MockWebSocket(), bin = false, t?: string) {
+	const res: HttpResponse = {
+		close: noop,
+		cork: noop,
+		end: noop,
+		getProxiedRemoteAddress: noop,
+		getProxiedRemoteAddressAsText: noop,
+		getRemoteAddress: noop,
+		getRemoteAddressAsText: noop,
+		getWriteOffset: noop,
+		onAborted: noop,
+		onData: noop,
+		onWritable: noop,
+		tryEnd: noop,
+		upgrade: (_userData: any, _secWebSocketKey: RecognizedString, _secWebSocketProtocol: RecognizedString, _secWebSocketExtensions: RecognizedString, _context: us_socket_context_t) => {
+			if (onUpgrade) {
+				onUpgrade(ws);
+			}
+		},
+		write: noop,
+		writeHeader: noop,
+		writeStatus: noop,
+	};
+	const query = queryString({ bin, t, hash: '123' });
+	const req: HttpRequest = {
+		forEach: (cb: (key: string, value: string) => void) => {
+			const headers = [
+				{ key: 'foo', value: 'bar' },
+			];
+			headers.forEach(header => cb(header.key, header.value));
+		},
+		getHeader: noop,
+		getMethod: noop,
+		getParameter: noop,
+		getQuery: () => {
+			return query.substring(1);
+		},
+		getUrl: () => {
+			return '/test';
+		},
+		setYield: noop,
+	};
+	const context: us_socket_context_t = {
 
-// 		return result;
-// 	}
-// }
+	};
+	return { res, req, context };
+}
 
-// export class MockWebSocket extends MockEventEmitter {
-// 	static Server = MockWebSocketServer;
-// 	upgradeReq = { url: '?hash=123', headers: { foo: 'bar' } };
-// 	constructor() {
-// 		super();
-// 	}
-// 	terminate() { }
-// 	close = stub() as any;
-// 	send(_message: any) { }
-// }
-
-// export function getLastServer() {
-// 	return lastServer;
-// }
+export function connectClient(bin?: boolean, t?: string | undefined) {
+	return new Promise<WebSocket>(r => {
+		const behavior = getLastBehavior();
+		const { res, req, context } = createUpgrade(ws => {
+			r(ws);
+			behavior.open!(ws);
+		}, undefined, bin, t);
+		behavior.upgrade!(res, req, context);
+	});
+}

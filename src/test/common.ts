@@ -8,6 +8,7 @@ import * as chai from 'chai';
 import * as chaiAsPromised from 'chai-as-promised';
 import { App, us_listen_socket_close } from 'uWebSockets.js';
 
+
 chai.use(chaiAsPromised);
 
 export function delay(duration: number) {
@@ -27,6 +28,30 @@ export function createServerHandler() {
 	};
 
 	return { app, start, stop };
+}
+
+// export function createKillMethod(behavior: TemplatedApp) {
+// 	// const connections = new Set<WebSocket>();
+
+// 	// behavior.open = ws => {
+// 	// 	connections.add(ws);
+// 	// };
+
+// 	// return (callback = () => { }) => {
+// 	// 	//server.close(callback);
+
+// 	// 	connections.forEach((a) => {
+// 	// 		a.close();
+// 	// 	});
+// 	// 	connections.clear();
+// 	// 	callback();
+// 	// };
+// }
+
+
+export function stringToArrayBuffer(str: string) {
+	const encoder = new TextEncoder();
+	return encoder.encode(str);
 }
 
 export type MockServerHandler = ReturnType<typeof createServerHandler>;
