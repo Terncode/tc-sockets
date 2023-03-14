@@ -1,26 +1,19 @@
-// //@ts-nocheck
 // import { delay } from './common';
+// import { VerifyClientCallbackAsync } from 'ws';
+// import * as http from 'http';
 // import { expect } from 'chai';
-// import { App, HttpRequest, TemplatedApp, us_listen_socket_close } from "uWebSockets.js"
 // import { assert, stub, spy, match, SinonStub, useFakeTimers, SinonFakeTimers } from 'sinon';
 // import {
 // 	createServer, createServerRaw, ErrorHandler, Method, Socket, Server as TheServer,
 // 	SocketClient, ClientExtensions, Bin, createClientOptions, ServerHost,
 // } from '../index';
 // import { MessageType } from '../packet/packetHandler';
-// import { MockWebSocket, MockWebSocketServer, getLastServer } from './uwsMock';
-// import { createServerHost } from '../server/serverSocket';
-// import { randomString } from '../server/serverUtils';
-// import { ServerOptions } from '../server/serverInterfaces';
+// import { MockWebSocket, MockWebSocketServer, getLastServer } from './wsMock';
+// import { createServerHost } from '../serverSocket';
+// import { randomString } from '../serverUtils';
+// import { ServerOptions } from '../serverInterfaces';
 
-// const ws = MockWebSocket as any;
-// new ws.Server()
-
-// type VerifyClientCallbackAsync = (
-//     info: { origin: string; secure: boolean; req: HttpRequest },
-//     callback: (res: boolean, code?: number, message?: string, headers?: {[key: string]: string}) => void,
-// ) => void;
-// @Socket()
+// @Socket({})
 // class Server1 {
 // 	constructor(public client: Client1 & SocketClient & ClientExtensions) { }
 // 	connected() { }
@@ -33,6 +26,10 @@
 // 	rate() { }
 // 	@Method({ rateLimit: '1/s', promise: true })
 // 	ratePromise() { return Promise.resolve(0); }
+// 	@Method({ promise: true, binaryResult: true })
+// 	binaryPromise() {
+// 		return Promise.resolve(new Uint8Array([1, 2, 3, 4, 5]));
+// 	}
 // }
 
 // @Socket()
@@ -55,16 +52,17 @@
 // const CLIENT_OPTIONS = {
 // 	id: 'socket',
 // 	client: [
-// 		['hi', { }],
+// 		'hi',
 // 		['bye', { binary: [1] }],
 // 	],
 // 	path: '/ws',
 // 	reconnectTimeout: 500,
 // 	server: [
-// 		['hello', {}],
+// 		'hello',
 // 		['login', { promise: true }],
 // 		['rate', { rateLimit: '1/s' }],
-// 		['ratePromise', { rateLimit: '1/s', promise: true }]
+// 		['ratePromise', { rateLimit: '1/s', promise: true }],
+// 		['binaryPromise', { promise: true, binaryResult: true }],
 // 	],
 // 	tokenLifetime: 3600000,
 // };
@@ -93,36 +91,31 @@
 // 	return JSON.parse(JSON.stringify(obj));
 // }
 
+// const ws = MockWebSocket as any;
 
 // describe('serverSocket', () => {
 // 	describe('createServer() (real)', () => {
-// 		let templateApp: TemplatedApp;
-//         let token = 0;
+// 		let server: http.Server;
 
 // 		beforeEach(() => {
-// 			templateApp = App();
+// 			server = http.createServer();
 // 		});
 
-// 		afterEach(() => {
-//             us_listen_socket_close(token);
+// 		afterEach(function (done) {
+// 			server.close(() => done());
 // 		});
 
 // 		it('is able to start server', function (done) {
-// 			createServer(Server1, Client1, c => new Server1(c), { path: '/test2', templateApp });
-// 			templateApp.listen(12345, tokenQuestionMark => {
-//                 if (tokenQuestionMark) {
-//                     token = tokenQuestionMark;
-//                     done();
-//                 } else {
-//                     done(new Error("Cannot start a server"));
-//                 }
-//             });
+// 			createServer(server, Server1, Client1, c => new Server1(c), { path: '/test2' });
+// 			server.listen(12345, done);
 // 		});
 
 // 		it('is able to close server', function (done) {
-// 			const socket = createServer(Server1, Client1, c => new Server1(c), { path: '/test2' });
-//             socket.close();
-//             done();
+// 			const socket = createServer(server, Server1, Client1, c => new Server1(c), { path: '/test2' });
+// 			server.listen(12345, () => {
+// 				socket.close();
+// 				done();
+// 			});
 // 		});
 
 // 		it('throws if passed object with too many methods', () => {
@@ -132,73 +125,72 @@
 // 				Ctor.prototype[`foo${i}`] = () => { };
 // 			}
 
-// 			expect(() => createServer(Ctor, Ctor, () => null, {templateApp})).throw('Too many methods');
+// 			expect(() => createServer(server, Ctor, Ctor, () => null)).throw('Too many methods');
 // 		});
 // 	});
 
-// 	// describe('createServer() (mock) (creation)', () => {
+// 	describe('createServer() (mock) (creation)', () => {
+// 		it('createServerRaw() throws if passed empty client or server method definitions', () => {
+// 			expect(() => createServerRaw({} as any, c => new Server1(c), { ws, client: [], server: null } as any))
+// 				.throws('Missing server or client method definitions');
+// 			expect(() => createServerRaw({} as any, c => new Server1(c), { ws, client: null, server: [] } as any))
+// 				.throws('Missing server or client method definitions');
+// 		});
 
-// 	// 	it('createServerRaw() throws if passed empty client or server method definitions', () => {
-// 	// 		expect(() => createServerRaw(c => new Server1(c), { client: [], server: null } as any))
-// 	// 			.throws('Missing server or client method definitions');
-// 	// 		expect(() => createServerRaw(c => new Server1(c), { client: null, server: [] } as any))
-// 	// 			.throws('Missing server or client method definitions');
-// 	// 	});
+// 		it('handles server errors without error handler', () => {
+// 			createServer({} as any, Server1, Client1, c => new Server1(c), { ws });
+// 			getLastServer().invoke('error', new Error('test'));
+// 		});
 
-// 	// 	it('handles server errors without error handler', () => {
-// 	// 		createServer(Server1, Client1, c => new Server1(c));
-// 	// 		console.log("last server", getLastServer());
-//     //         getLastServer().invoke('error', new Error('test'));
-// 	// 	});
+// 		it('passes request info to client if keepOriginalRequest option is true', async () => {
+// 			let server1: Server1;
+// 			createServer({} as any, Server1, Client1, c => server1 = new Server1(c), { ws, keepOriginalRequest: true, hash: '123' });
+// 			await getLastServer().connectClient();
 
-// 	// 	it('passes request info to client if keepOriginalRequest option is true', async () => {
-// 	// 		let server1: Server1;
-// 	// 		createServer(Server1, Client1, c => server1 = new Server1(c), { keepOriginalRequest: true, hash: '123' });
-// 	// 		await getLastServer().connectClient();
+// 			await delay(50);
 
-// 	// 		await delay(50);
+// 			expect(server1!.client.originalRequest).eql({ url: 'ws://test/?bin=false&hash=123', headers: { foo: 'bar' } });
+// 		});
 
-// 	// 		expect(server1!.client.originalRequest).eql({ url: 'ws://test/?bin=false&hash=123', headers: { foo: 'bar' } });
-// 	// 	});
+// 		it('does not pass request info to client if keepOriginalRequest option is not true', async () => {
+// 			let server1: Server1;
+// 			createServer({} as any, Server1, Client1, c => server1 = new Server1(c), { ws, hash: '123' });
+// 			await getLastServer().connectClient();
 
-// 	// 	it('does not pass request info to client if keepOriginalRequest option is not true', async () => {
-// 	// 		let server1: Server1;
-// 	// 		createServer(Server1, Client1, c => server1 = new Server1(c), { hash: '123' });
-// 	// 		await getLastServer().connectClient();
+// 			await delay(50);
 
-// 	// 		await delay(50);
+// 			expect(server1!.client.originalRequest).undefined;
+// 		});
 
-// 	// 		expect(server1!.client.originalRequest).undefined;
-// 	// 	});
+// 		it('handles async creation of server actions', async () => {
+// 			let server1: Server1;
+// 			createServer({} as any, Server1, Client1, c => Promise.resolve().then(() => server1 = new Server1(c)), { ws, hash: '123' });
+// 			await getLastServer().connectClient();
 
-// 	// 	it('handles async creation of server actions', async () => {
-// 	// 		let server1: Server1;
-// 	// 		createServer(Server1, Client1, c => Promise.resolve().then(() => server1 = new Server1(c)), { hash: '123' });
-// 	// 		await getLastServer().connectClient();
+// 			await delay(50);
 
-// 	// 		await delay(50);
+// 			expect(server1!).not.undefined;
+// 		});
 
-// 	// 		expect(server1!).not.undefined;
-// 	// 	});
+// 		it('closes connection if connected() handler threw an error', async () => {
+// 			createServer({} as any, Server1, Client1, c => new ServerThrowingOnConnected(c) as any, { ws, hash: '123' });
 
-// 	// 	it('closes connection if connected() handler threw an error', async () => {
-// 	// 		createServer(Server1, Client1, c => new ServerThrowingOnConnected(c) as any, { hash: '123' });
+// 			const socket = await getLastServer().connectClient();
 
-// 	// 		const socket = await getLastServer().connectClient();
+// 			await delay(50);
+// 			assert.calledOnce(socket.close as any);
+// 		});
 
-// 	// 		await delay(50);
-// 	// 		assert.calledOnce(socket.close as any);
-// 	// 	});
-
-		
 // 		describe('if token does not exist', () => {
 // 			let webSocket: MockWebSocket;
 // 			let errorHandler: ErrorHandler;
 
 // 			beforeEach(() => {
-// 				createServer(Server1, Client1, c => new Server1(c), { connectionTokens: true, hash: '123' }, errorHandler = emptyErrorHandler());
-// 				    webSocket = new MockWebSocket();
-// 				    webSocket.upgradeReq.url = '?t=foobar&hash=123';
+// 				createServer(
+// 					{} as any, Server1, Client1, c => new Server1(c), { ws, connectionTokens: true, hash: '123' },
+// 					errorHandler = emptyErrorHandler());
+// 				webSocket = new MockWebSocket();
+// 				webSocket.upgradeReq.url = '?t=foobar&hash=123';
 // 			});
 
 // 			it('terminates connection', async () => {
@@ -209,18 +201,18 @@
 // 				assert.calledOnce(terminate);
 // 			});
 
-// 			// it('reports error', async () => {
-// 			// 	const handleError = stub(errorHandler, 'handleError');
+// 			it('reports error', async () => {
+// 				const handleError = stub(errorHandler, 'handleError');
 
-// 			// 	await getLastServer().connectWebSocket(webSocket);
+// 				await getLastServer().connectWebSocket(webSocket);
 
-// 			// 	assert.calledOnce(handleError);
-// 			// });
+// 				assert.calledOnce(handleError);
+// 			});
 // 		});
 
 // 		describe('.token()', () => {
 // 			it('returns new token string', () => {
-// 				const socketServer = createServer(Server1, Client1, c => new Server1(c), { connectionTokens: true, hash: '123' });
+// 				const socketServer = createServer({} as any, Server1, Client1, c => new Server1(c), { ws, connectionTokens: true, hash: '123' });
 
 // 				expect(socketServer.token()).a('string');
 // 			});
@@ -228,483 +220,498 @@
 // 			it('passes custom token data to client', async () => {
 // 				let server1: Server1;
 // 				const data = {};
-// 				const socketServer = createServer(Server1, Client1, c => server1 = new Server1(c), { connectionTokens: true, hash: '123' });
+// 				const socketServer = createServer({} as any, Server1, Client1, c => server1 = new Server1(c), { ws, connectionTokens: true, hash: '123' });
 // 				await getLastServer().connectClient(false, socketServer.token(data));
 
 // 				await delay(50);
 
 // 				expect(server1!.client.tokenData).equal(data);
 // 			});
-//         });
+// 		});
 
+// 		describe('.clearTokens()', () => {
+// 			it('does nothing for no tokens and no clients', () => {
+// 				const socketServer = createServer({} as any, Server1, Client1, c => new Server1(c), { ws, connectionTokens: true, hash: '123' });
 
-// 	// 	describe('.clearTokens()', () => {
-// 	// 		it('does nothing for no tokens and no clients', () => {
-// 	// 			const socketServer = createServer(Server1, Client1, c => new Server1(c), { connectionTokens: true, hash: '123' });
+// 				socketServer.clearTokens(() => true);
+// 			});
 
-// 	// 			socketServer.clearTokens(() => true);
-// 	// 		});
+// 			it('clears marked token', () => {
+// 				const socketServer = createServer({} as any, Server1, Client1, c => new Server1(c), { ws, connectionTokens: true, hash: '123' });
+// 				const token = socketServer.token({ remove: true });
 
-// 	// 		it('clears marked token', () => {
-// 	// 			const socketServer = createServer(Server1, Client1, c => new Server1(c), { connectionTokens: true, hash: '123' });
-// 	// 			const token = socketServer.token({ remove: true });
+// 				socketServer.clearTokens((_, data) => data.remove);
 
-// 	// 			socketServer.clearTokens((_, data) => data.remove);
+// 				const verifyClient = getLastServer().options.verifyClient! as VerifyClientCallbackAsync;
+// 				const next = spy();
+// 				verifyClient({ req: { url: `?t=${token}` } } as any, next);
+// 				assert.calledWith(next, false);
+// 			});
 
-// 	// 			const verifyClient = getLastServer().options.verifyClient! as VerifyClientCallbackAsync;
-// 	// 			const next = spy();
-// 	// 			verifyClient({ req: { url: `?t=${token}` } } as any, next);
-// 	// 			assert.calledWith(next, false);
-// 	// 		});
+// 			it('does not clear not marked token', () => {
+// 				const socketServer = createServer({} as any, Server1, Client1, c => new Server1(c), { ws, connectionTokens: true, hash: '123' });
+// 				const token = socketServer.token({ remove: false });
 
-// 	// 		it('does not clear not marked token', () => {
-// 	// 			const socketServer = createServer(Server1, Client1, c => new Server1(c), { connectionTokens: true, hash: '123' });
-// 	// 			const token = socketServer.token({ remove: false });
+// 				socketServer.clearTokens((_, data) => data.remove);
 
-// 	// 			socketServer.clearTokens((_, data) => data.remove);
+// 				const verifyClient = getLastServer().options.verifyClient! as VerifyClientCallbackAsync;
+// 				const next = spy();
+// 				verifyClient({ req: { url: `?t=${token}` } } as any, next);
+// 				assert.calledWith(next, true);
+// 			});
 
-// 	// 			const verifyClient = getLastServer().options.verifyClient! as VerifyClientCallbackAsync;
-// 	// 			const next = spy();
-// 	// 			verifyClient({ req: { url: `?t=${token}` } } as any, next);
-// 	// 			assert.calledWith(next, true);
-// 	// 		});
+// 			it('disconnects client using marked token', async () => {
+// 				const socketServer = createServer({} as any, Server1, Client1, c => new Server1(c), { ws, connectionTokens: true, hash: '123' });
+// 				const token = socketServer.token({ remove: true });
+// 				const client = await getLastServer().connectClient(false, token);
+// 				const terminate = stub(client, 'terminate');
 
-// 	// 		it('disconnects client using marked token', async () => {
-// 	// 			const socketServer = createServer(Server1, Client1, c => new Server1(c), { connectionTokens: true, hash: '123' });
-// 	// 			const token = socketServer.token({ remove: true });
-// 	// 			const client = await getLastServer().connectClient(false, token);
-// 	// 			const terminate = stub(client, 'terminate');
+// 				socketServer.clearTokens((_, data) => data.remove);
 
-// 	// 			socketServer.clearTokens((_, data) => data.remove);
+// 				assert.calledOnce(terminate);
+// 			});
+// 		});
 
-// 	// 			assert.calledOnce(terminate);
-// 	// 		});
-// 	// 	});
+// 		describe('(transfer limit)', () => {
+// 			let errorHandler: ErrorHandler;
+// 			let server: Server1;
+// 			let clock: SinonFakeTimers | undefined;
 
-// 	// 	describe('(transfer limit)', () => {
-// 	// 		let errorHandler: ErrorHandler;
-// 	// 		let server: Server1;
-// 	// 		let clock: SinonFakeTimers | undefined;
+// 			beforeEach(() => {
+// 				clock = undefined;
+// 				errorHandler = emptyErrorHandler();
+// 				createServer({} as any, Server1, Client1, c => server = new Server1(c), { ws, transferLimit: 1000, hash: '123' }, errorHandler);
+// 			});
 
-// 	// 		beforeEach(() => {
-// 	// 			clock = undefined;
-// 	// 			errorHandler = emptyErrorHandler();
-// 	// 			createServer(Server1, Client1, c => server = new Server1(c), { transferLimit: 1000, hash: '123' }, errorHandler);
-// 	// 		});
+// 			afterEach(() => {
+// 				clock && clock.restore();
+// 			});
 
-// 	// 		afterEach(() => {
-// 	// 			clock && clock.restore();
-// 	// 		});
+// 			it('calls method if not exceeding limit', async () => {
+// 				const client = await getLastServer().connectClient();
+// 				const hello = stub(server, 'hello');
 
-// 	// 		it('calls method if not exceeding limit', async () => {
-// 	// 			const client = await getLastServer().connectClient();
-// 	// 			const hello = stub(server, 'hello');
+// 				client.invoke('message', '[0,"hello there"]');
+
+// 				assert.calledWith(hello, 'hello there');
+// 			});
 
-// 	// 			client.invoke('message', '[0,"hello there"]');
+// 			it('does not call method if exceeded limit (one message)', async () => {
+// 				const client = await getLastServer().connectClient();
+// 				const hello = stub(server, 'hello');
 
-// 	// 			assert.calledWith(hello, 'hello there');
-// 	// 		});
+// 				client.invoke('message', `[0,"${randomString(1000)}"]`);
 
-// 	// 		it('does not call method if exceeded limit (one message)', async () => {
-// 	// 			const client = await getLastServer().connectClient();
-// 	// 			const hello = stub(server, 'hello');
+// 				assert.notCalled(hello);
+// 			});
+
+// 			it('does not call method if exceeded limit (multiple messages)', async () => {
+// 				const client = await getLastServer().connectClient();
+// 				const hello = stub(server, 'hello');
+
+// 				for (let i = 0; i < 10; i++) {
+// 					client.invoke('message', `[0,"${randomString(100)}"]`);
+// 				}
 
-// 	// 			client.invoke('message', `[0,"${randomString(1000)}"]`);
+// 				client.invoke('message', `[0,"hi"]`);
 
-// 	// 			assert.notCalled(hello);
-// 	// 		});
+// 				assert.neverCalledWith(hello, 'hi');
+// 			});
 
-// 	// 		it('does not call method if exceeded limit (multiple messages)', async () => {
-// 	// 			const client = await getLastServer().connectClient();
-// 	// 			const hello = stub(server, 'hello');
+// 			it('reports error when limit is exceeded', async () => {
+// 				const client = await getLastServer().connectClient();
+// 				const handleRecvError = stub(errorHandler, 'handleRecvError');
 
-// 	// 			for (let i = 0; i < 10; i++) {
-// 	// 				client.invoke('message', `[0,"${randomString(100)}"]`);
-// 	// 			}
+// 				client.invoke('message', `[0,"${randomString(1000)}"]`);
 
-// 	// 			client.invoke('message', `[0,"hi"]`);
+// 				assert.calledOnce(handleRecvError);
+// 			});
 
-// 	// 			assert.neverCalledWith(hello, 'hi');
-// 	// 		});
+// 			it('terminates socket connection when limit is exceeded', async () => {
+// 				const client = await getLastServer().connectClient();
+// 				const terminate = stub(client, 'terminate');
+
+// 				client.invoke('message', `[0,"${randomString(1000)}"]`);
+
+// 				assert.calledOnce(terminate);
+// 			});
+
+// 			// TODO: fix
+// 			it.skip('resets counter after a second', async () => {
+// 				const client = await getLastServer().connectClient();
+// 				const hello = stub(server, 'hello');
+
+// 				clock = useFakeTimers();
+
+// 				client.invoke('message', `[0,"${randomString(900)}"]`);
+
+// 				clock.tick(2000);
+
+// 				client.invoke('message', `[0,"${randomString(900)}"]`);
+
+// 				assert.calledTwice(hello);
+// 			});
+// 		});
+// 	});
+
+// 	describe('createServer() (mock)', () => {
+// 		const httpServer: http.Server = {} as any;
+
+// 		let server: MockWebSocketServer;
+// 		let serverHost: ServerHost;
+// 		let serverSocket: TheServer;
+// 		let errorHandler: ErrorHandler;
+// 		let servers: Server1[] = [];
+// 		let onServer: (s: Server1) => void;
+// 		let onSend: SinonStub;
+// 		let onRecv: SinonStub;
+
+// 		async function connectClientAndSaveMessages(bin = false) {
+// 			const client = await server.connectClient(bin);
+// 			const result = { message: undefined as any };
+// 			client.send = message => result.message = message.slice(0);
+// 			return result;
+// 		}
+
+// 		beforeEach(() => {
+// 			errorHandler = defaultErrorHandler();
+// 			servers = [];
+// 			onServer = s => servers.push(s);
+// 			onSend = stub();
+// 			onRecv = stub();
+// 			serverHost = createServerHost(
+// 				httpServer, { ws, path: '/foo', perMessageDeflate: false, errorHandler });
+// 			serverSocket = serverHost.socket(Server1, Client1, client => {
+// 				const s = new Server1(client);
+// 				onServer(s);
+// 				return s;
+// 			}, { ws, path: '/foo', perMessageDeflate: false, onSend, onRecv, development: true, hash: '123' });
+// 			server = getLastServer();
+// 		});
+
+// 		it('passes http server to websocket server', () => {
+// 			expect(server.options.server).equal(httpServer);
+// 		});
 
-// 	// 		it('reports error when limit is exceeded', async () => {
-// 	// 			const client = await getLastServer().connectClient();
-// 	// 			const handleRecvError = stub(errorHandler, 'handleRecvError');
+// 		it('passes path to websocket server', () => {
+// 			expect(server.options.path).equal('/foo');
+// 		});
 
-// 	// 			client.invoke('message', `[0,"${randomString(1000)}"]`);
+// 		it('passes perMessageDeflate option to websocket server', () => {
+// 			expect(server.options.perMessageDeflate).false;
+// 		});
 
-// 	// 			assert.calledOnce(handleRecvError);
-// 	// 		});
+// 		it('connects client', async () => {
+// 			await server.connectClient();
+// 		});
 
-// 	// 		it('terminates socket connection when limit is exceeded', async () => {
-// 	// 			const client = await getLastServer().connectClient();
-// 	// 			const terminate = stub(client, 'terminate');
-
-// 	// 			client.invoke('message', `[0,"${randomString(1000)}"]`);
-
-// 	// 			assert.calledOnce(terminate);
-// 	// 		});
-
-// 	// 		// TODO: fix
-// 	// 		it.skip('resets counter after a second', async () => {
-// 	// 			const client = await getLastServer().connectClient();
-// 	// 			const hello = stub(server, 'hello');
-
-// 	// 			clock = useFakeTimers();
+// 		it('reports socket server error', () => {
+// 			const error = new Error('test');
+// 			const handleError = stub(errorHandler, 'handleError');
 
-// 	// 			client.invoke('message', `[0,"${randomString(900)}"]`);
+// 			server.invoke('error', error);
 
-// 	// 			clock.tick(2000);
+// 			assert.calledWith(handleError, null, error);
+// 		});
 
-// 	// 			client.invoke('message', `[0,"${randomString(900)}"]`);
+// 		it('reports socket error', async () => {
+// 			const client = await server.connectClient();
+// 			const error = new Error('test');
+// 			const handleError = stub(errorHandler, 'handleError');
 
-// 	// 			assert.calledTwice(hello);
-// 	// 		});
-// 	// 	});
-// 	// });
+// 			client.invoke('error', error);
 
-// 	// describe('createServer() (mock)', () => {
+// 			assert.calledWith(handleError, serverSocket.clients[0].client, error);
+// 		});
 
-// 	// 	let server: MockWebSocketServer;
-// 	// 	let serverHost: ServerHost;
-// 	// 	let serverSocket: TheServer;
-// 	// 	let errorHandler: ErrorHandler;
-// 	// 	let servers: Server1[] = [];
-// 	// 	let onServer: (s: Server1) => void;
-// 	// 	let onSend: SinonStub;
-// 	// 	let onRecv: SinonStub;
+// 		it('terminates and reports connection error if failed to attach events', async () => {
+// 			const client = new MockWebSocket();
+// 			const error = new Error('test');
+// 			stub(client, 'on').throws(error);
+// 			const terminate = stub(client, 'terminate');
+// 			const handleError = stub(errorHandler, 'handleError');
 
-// 	// 	async function connectClientAndSaveMessages(bin = false) {
-// 	// 		const client = await server.connectClient(bin);
-// 	// 		const result = { message: undefined as any };
-// 	// 		client.send = message => result.message = message.slice(0);
-// 	// 		return result;
-// 	// 	}
+// 			server.invoke('connection', client);
 
-// 	// 	beforeEach(() => {
-// 	// 		errorHandler = defaultErrorHandler();
-// 	// 		servers = [];
-// 	// 		onServer = s => servers.push(s);
-// 	// 		onSend = stub();
-// 	// 		onRecv = stub();
-// 	// 		serverHost = createServerHost({ path: '/foo', perMessageDeflate: false, errorHandler, });
-// 	// 		serverSocket = serverHost.socket(Server1, Client1, client => {
-// 	// 			const s = new Server1(client);
-// 	// 			onServer(s);
-// 	// 			return s;
-// 	// 		}, { path: '/foo', perMessageDeflate: false, onSend, onRecv, development: true, hash: '123' });
-// 	// 		server = getLastServer();
-// 	// 	});
+// 			await delay(5);
 
-// 	// 	// it('passes http server to websocket server', () => {
-// 	// 	// 	expect(server.options.server).equal(httpServer);
-// 	// 	// });
+// 			assert.calledOnce(terminate);
+// 			assert.calledWith(handleError, match.any, error);
+// 		});
 
-// 	// 	it('passes path to websocket server', () => {
-// 	// 		expect(server.options.path).equal('/foo');
-// 	// 	});
+// 		it('reports exception from server.connected()', async () => {
+// 			const error = new Error('test');
+// 			onServer = s => stub(s, 'connected').throws(error);
+// 			const handleError = stub(errorHandler, 'handleError');
 
-// 	// 	it('passes perMessageDeflate option to websocket server', () => {
-// 	// 		expect(server.options.perMessageDeflate).false;
-// 	// 	});
+// 			await server.connectClient();
 
-// 	// 	it('connects client', async () => {
-// 	// 		await server.connectClient();
-// 	// 	});
+// 			assert.calledWithMatch(handleError as any, match.any, error);
+// 		});
 
-// 	// 	it('reports socket server error', () => {
-// 	// 		const error = new Error('test');
-// 	// 		const handleError = stub(errorHandler, 'handleError');
+// 		it('reports rejection from server.connected()', async () => {
+// 			const error = new Error('test');
+// 			onServer = s => stub(s, 'connected').rejects(error);
+// 			const handleError = stub(errorHandler, 'handleError');
 
-// 	// 		server.invoke('error', error);
+// 			await server.connectClient();
 
-// 	// 		assert.calledWith(handleError, null, error);
-// 	// 	});
+// 			await Promise.resolve();
+// 			assert.calledWithMatch(handleError as any, match.any, error);
+// 		});
 
-// 	// 	it('reports socket error', async () => {
-// 	// 		const client = await server.connectClient();
-// 	// 		const error = new Error('test');
-// 	// 		const handleError = stub(errorHandler, 'handleError');
+// 		it('reports exception from server.disconnected()', async () => {
+// 			const error = new Error('test');
+// 			onServer = s => stub(s, 'disconnected').throws(error);
+// 			const handleError = stub(errorHandler, 'handleError');
+// 			const client = await server.connectClient();
 
-// 	// 		client.invoke('error', error);
+// 			client.invoke('close');
 
-// 	// 		assert.calledWith(handleError, serverSocket.clients[0].client, error);
-// 	// 	});
+// 			assert.calledWithMatch(handleError as any, match.any, error);
+// 		});
 
-// 	// 	it('terminates and reports connection error if failed to attach events', async () => {
-// 	// 		const client = new MockWebSocket();
-// 	// 		const error = new Error('test');
-// 	// 		stub(client, 'on').throws(error);
-// 	// 		const terminate = stub(client, 'terminate');
-// 	// 		const handleError = stub(errorHandler, 'handleError');
+// 		it('reports rejection from server.disconnected()', async () => {
+// 			const error = new Error('test');
+// 			onServer = s => stub(s, 'disconnected').rejects(error);
+// 			const handleError = stub(errorHandler, 'handleError');
+// 			const client = await server.connectClient();
 
-// 	// 		server.invoke('connection', client);
+// 			client.invoke('close');
 
-// 	// 		await delay(5);
+// 			await Promise.resolve();
 
-// 	// 		assert.calledOnce(terminate);
-// 	// 		assert.calledWith(handleError, match.any, error);
-// 	// 	});
+// 			assert.calledWithMatch(handleError as any, match.any, error);
+// 		});
 
-// 	// 	it('reports exception from server.connected()', async () => {
-// 	// 		const error = new Error('test');
-// 	// 		onServer = s => stub(s, 'connected').throws(error);
-// 	// 		const handleError = stub(errorHandler, 'handleError');
+// 		it('does not handle any messages after socket is closed', async () => {
+// 			const client = await server.connectClient();
+// 			const hello = stub(servers[0], 'hello');
+// 			client.invoke('close');
 
-// 	// 		await server.connectClient();
+// 			client.invoke('message', '[0,"test"]');
 
-// 	// 		assert.calledWithMatch(handleError as any, match.any, error);
-// 	// 	});
+// 			assert.notCalled(hello);
+// 		});
 
-// 	// 	it('reports rejection from server.connected()', async () => {
-// 	// 		const error = new Error('test');
-// 	// 		onServer = s => stub(s, 'connected').rejects(error);
-// 	// 		const handleError = stub(errorHandler, 'handleError');
+// 		it('handles message from client', async () => {
+// 			const client = await server.connectClient();
+// 			const hello = stub(servers[0], 'hello');
 
-// 	// 		await server.connectClient();
+// 			client.invoke('message', '[0,"test"]');
 
-// 	// 		await Promise.resolve();
-// 	// 		assert.calledWithMatch(handleError as any, match.any, error);
-// 	// 	});
+// 			assert.calledWith(hello, 'test');
+// 		});
 
-// 	// 	it('reports exception from server.disconnected()', async () => {
-// 	// 		const error = new Error('test');
-// 	// 		onServer = s => stub(s, 'disconnected').throws(error);
-// 	// 		const handleError = stub(errorHandler, 'handleError');
-// 	// 		const client = await server.connectClient();
+// 		it('reports received packet to onRecv hook', async () => {
+// 			const client = await server.connectClient();
 
-// 	// 		client.invoke('close');
+// 			client.invoke('message', '[0,"test"]');
 
-// 	// 		assert.calledWithMatch(handleError as any, match.any, error);
-// 	// 	});
+// 			assert.calledWithMatch(onRecv, 0, 'hello', 10, false);
+// 		});
 
-// 	// 	it('reports rejection from server.disconnected()', async () => {
-// 	// 		const error = new Error('test');
-// 	// 		onServer = s => stub(s, 'disconnected').rejects(error);
-// 	// 		const handleError = stub(errorHandler, 'handleError');
-// 	// 		const client = await server.connectClient();
+// 		it('sends promise result back to client', async () => {
+// 			const client = await server.connectClient();
+// 			const send = stub(client, 'send');
+// 			stub(servers[0], 'login').resolves({ foo: 'bar' } as any);
 
-// 	// 		client.invoke('close');
+// 			client.invoke('message', '[1, "test"]');
 
-// 	// 		await Promise.resolve();
+// 			await delay(10);
 
-// 	// 		assert.calledWithMatch(handleError as any, match.any, error);
-// 	// 	});
+// 			assert.calledWith(send, JSON.stringify([MessageType.Resolved, 1, 1, { foo: 'bar' }]));
+// 		});
 
-// 	// 	it('does not handle any messages after socket is closed', async () => {
-// 	// 		const client = await server.connectClient();
-// 	// 		const hello = stub(servers[0], 'hello');
-// 	// 		client.invoke('close');
+// 		it('sends promise result back to client as binary', async () => {
+// 			const client = await server.connectClient();
+// 			const send = stub(client, 'send');
 
-// 	// 		client.invoke('message', '[0,"test"]');
+// 			client.invoke('message', '[4]');
 
-// 	// 		assert.notCalled(hello);
-// 	// 	});
+// 			await delay(10);
 
-// 	// 	it('handles message from client', async () => {
-// 	// 		const client = await server.connectClient();
-// 	// 		const hello = stub(servers[0], 'hello');
+// 			assert.calledWith(send, Buffer.from([0xfe, 0x04, 0x01, 0x00, 0x00, 0x00, 0x04, 0x06, 0x01, 0x02, 0x03, 0x04, 0x05]));
+// 		});
 
-// 	// 		client.invoke('message', '[0,"test"]');
+// 		it('sends message to client (JSON)', async () => {
+// 			const client = await server.connectClient();
+// 			const send = stub(client, 'send');
 
-// 	// 		assert.calledWith(hello, 'test');
-// 	// 	});
+// 			servers[0].client.hi('boop');
 
-// 	// 	it('reports received packet to onRecv hook', async () => {
-// 	// 		const client = await server.connectClient();
+// 			assert.calledWith(send, '[0,"boop"]');
+// 		});
 
-// 	// 		client.invoke('message', '[0,"test"]');
+// 		it('sends message to client (binary)', async () => {
+// 			const send = await connectClientAndSaveMessages(true);
 
-// 	// 		assert.calledWithMatch(onRecv, 0, 'hello', 10, false);
-// 	// 	});
+// 			servers[0].client.bye(5);
 
-// 	// 	it('sends promise result back to client', async () => {
-// 	// 		const client = await server.connectClient();
-// 	// 		const send = stub(client, 'send');
-// 	// 		stub(servers[0], 'login').resolves({ foo: 'bar' } as any);
+// 			expect(bufferToArray(send.message)).eql([1, 5]);
+// 		});
 
-// 	// 		client.invoke('message', '[1, "test"]');
+// 		it('reports sent packet to onSend hook', async () => {
+// 			await server.connectClient(true);
 
-// 	// 		await delay(10);
+// 			servers[0].client.bye(5);
 
-// 	// 		assert.calledWith(send, JSON.stringify([MessageType.Resolved, 1, 1, { foo: 'bar' }]));
-// 	// 	});
+// 			expect(onSend.args[1]).eql([1, 'bye', 2, true]);
+// 		});
 
-// 	// 	it('sends message to client (JSON)', async () => {
-// 	// 		const client = await server.connectClient();
-// 	// 		const send = stub(client, 'send');
+// 		describe('(rate limit)', () => {
+// 			let handleRecvError: SinonStub<any>;
+// 			let handleRejection: SinonStub<any>;
 
-// 	// 		servers[0].client.hi('boop');
+// 			beforeEach(() => {
+// 				handleRecvError = stub(errorHandler, 'handleRecvError');
+// 				handleRejection = stub(errorHandler, 'handleRejection');
+// 			});
 
-// 	// 		assert.calledWith(send, '[0,"boop"]');
-// 	// 	});
+// 			it('does not call method if rate limit is exceeded', async () => {
+// 				const client = await server.connectClient();
+// 				const rate = stub(servers[0]!, 'rate');
 
-// 	// 	it('sends message to client (binary)', async () => {
-// 	// 		const send = await connectClientAndSaveMessages(true);
+// 				client.invoke('message', '[2]');
+// 				client.invoke('message', '[2]');
+// 				client.invoke('message', '[2]');
 
-// 	// 		servers[0].client.bye(5);
+// 				assert.calledTwice(rate);
+// 			});
 
-// 	// 		expect(bufferToArray(send.message)).eql([1, 5]);
-// 	// 	});
+// 			it('logs recv error if rate limit is exceeded', async () => {
+// 				const client = await server.connectClient();
 
-// 	// 	it('reports sent packet to onSend hook', async () => {
-// 	// 		await server.connectClient(true);
+// 				client.invoke('message', '[2]');
+// 				client.invoke('message', '[2]');
+// 				client.invoke('message', '[2]');
 
-// 	// 		servers[0].client.bye(5);
+// 				assert.calledOnce(handleRecvError);
+// 			});
 
-// 	// 		expect(onSend.args[1]).eql([1, 'bye', 2, true]);
-// 	// 	});
+// 			it('sends reject if rate limit is exceeded on method with promise', async () => {
+// 				const client = await server.connectClient();
+// 				const send = stub(client, 'send');
+// 				const data = JSON.stringify([MessageType.Rejected, 3, 3, 'Rate limit exceeded']);
 
-// 	// 	describe('(rate limit)', () => {
-// 	// 		let handleRecvError: SinonStub<any>;
-// 	// 		let handleRejection: SinonStub<any>;
+// 				client.invoke('message', '[3]');
+// 				client.invoke('message', '[3]');
+// 				client.invoke('message', '[3]');
 
-// 	// 		beforeEach(() => {
-// 	// 			handleRecvError = stub(errorHandler, 'handleRecvError');
-// 	// 			handleRejection = stub(errorHandler, 'handleRejection');
-// 	// 		});
+// 				await delay(10);
 
-// 	// 		it('does not call method if rate limit is exceeded', async () => {
-// 	// 			const client = await server.connectClient();
-// 	// 			const rate = stub(servers[0]!, 'rate');
+// 				assert.calledWith(send, data);
+// 			});
 
-// 	// 			client.invoke('message', '[2]');
-// 	// 			client.invoke('message', '[2]');
-// 	// 			client.invoke('message', '[2]');
+// 			it('logs rejection error if rate limit is exceeded on method with promise', async () => {
+// 				const client = await server.connectClient();
 
-// 	// 			assert.calledTwice(rate);
-// 	// 		});
+// 				client.invoke('message', '[3]');
+// 				client.invoke('message', '[3]');
+// 				client.invoke('message', '[3]');
 
-// 	// 		it('logs recv error if rate limit is exceeded', async () => {
-// 	// 			const client = await server.connectClient();
+// 				await delay(10);
+// 				assert.calledOnce(handleRejection);
+// 			});
+// 		});
 
-// 	// 			client.invoke('message', '[2]');
-// 	// 			client.invoke('message', '[2]');
-// 	// 			client.invoke('message', '[2]');
+// 		describe('.close()', () => {
+// 			it('closes web socket server', () => {
+// 				const close = stub(getLastServer(), 'close');
 
-// 	// 			assert.calledOnce(handleRecvError);
-// 	// 		});
+// 				serverHost.close();
 
-// 	// 		it('sends reject if rate limit is exceeded on method with promise', async () => {
-// 	// 			const client = await server.connectClient();
-// 	// 			const send = stub(client, 'send');
-// 	// 			const data = JSON.stringify([MessageType.Rejected, 3, 3, 'Rate limit exceeded']);
+// 				assert.calledOnce(close);
+// 			});
+// 		});
 
-// 	// 			client.invoke('message', '[3]');
-// 	// 			client.invoke('message', '[3]');
-// 	// 			client.invoke('message', '[3]');
+// 		describe('.options()', () => {
+// 			it('returns socket options', () => {
+// 				const socketServer = createServer({} as any, Server1, Client1, c => new Server1(c), { ws });
 
-// 	// 			await delay(10);
+// 				const options = socketServer.options();
 
-// 	// 			assert.calledWith(send, data);
-// 	// 		});
+// 				expect(withoutUndefinedProperties(options)).eql(Object.assign({ hash: options.hash }, CLIENT_OPTIONS));
+// 			});
+// 		});
+// 	});
 
-// 	// 		it('logs rejection error if rate limit is exceeded on method with promise', async () => {
-// 	// 			const client = await server.connectClient();
+// 	describe('createServer() (verifyClient hook)', () => {
+// 		const ws = MockWebSocket as any;
 
-// 	// 			client.invoke('message', '[3]');
-// 	// 			client.invoke('message', '[3]');
-// 	// 			client.invoke('message', '[3]');
+// 		function create(options: ServerOptions, errorHandler?: ErrorHandler) {
+// 			createServer({} as any, Server1, Client1, c => new Server1(c), { hash: '123', ...options }, errorHandler);
+// 			return getLastServer();
+// 		}
 
-// 	// 			await delay(10);
-// 	// 			assert.calledOnce(handleRejection);
-// 	// 		});
-// 	// 	});
+// 		function verify(server: MockWebSocketServer, info: any = { req: {} }) {
+// 			const verifyClient = server.options.verifyClient! as VerifyClientCallbackAsync;
+// 			let result = false;
+// 			verifyClient(info, x => result = x);
+// 			return result;
+// 		}
 
-// 	// 	describe('.close()', () => {
-// 	// 		it('closes web socket server', () => {
-// 	// 			const close = stub(getLastServer(), 'close');
+// 		it('returns true by default', () => {
+// 			const server = create({ ws });
 
-// 	// 			serverHost.close();
+// 			expect(verify(server)).true;
+// 		});
 
-// 	// 			assert.calledOnce(close);
-// 	// 		});
-// 	// 	});
+// 		it('passes request to custom verifyClient', () => {
+// 			const verifyClient = spy();
+// 			const server = create({ ws, verifyClient });
+// 			const req = {};
 
-// 	// 	describe('.options()', () => {
-// 	// 		it('returns socket options', () => {
-// 	// 			const socketServer = createServer(Server1, Client1, c => new Server1(c));
+// 			verify(server, { req });
+// 			assert.calledWith(verifyClient, req);
+// 		});
 
-// 	// 			const options = socketServer.options();
+// 		it('returns false if custom verifyClient returns false', () => {
+// 			const verifyClient = stub().returns(false);
+// 			const server = create({ ws, verifyClient });
 
-// 	// 			expect(withoutUndefinedProperties(options)).eql(Object.assign({ hash: options.hash }, CLIENT_OPTIONS));
-// 	// 		});
-// 	// 	});
-// 	// });
+// 			expect(verify(server)).false;
+// 		});
 
-// 	// describe('createServer() (verifyClient hook)', () => {
-// 	// 	function create(options: ServerOptions, errorHandler?: ErrorHandler) {
-// 	// 		createServer( Server1, Client1, c => new Server1(c), { hash: '123', ...options }, errorHandler);
-// 	// 		return getLastServer();
-// 	// 	}
+// 		it('returns true if custom verifyClient returns true', () => {
+// 			const verifyClient = stub().returns(true);
+// 			const server = create({ ws, verifyClient });
 
-// 	// 	function verify(server: MockWebSocketServer, info: any = { req: {} }) {
-// 	// 		const verifyClient = server.options.verifyClient! as VerifyClientCallbackAsync;
-// 	// 		let result = false;
-// 	// 		verifyClient(info, x => result = x);
-// 	// 		return result;
-// 	// 	}
+// 			expect(verify(server)).true;
+// 		});
 
-// 	// 	it('returns true by default', () => {
-// 	// 		const server = create({ });
+// 		it('returns false if client limit is reached', async () => {
+// 			const server = create({ ws, clientLimit: 1 });
+// 			await server.connectClient();
 
-// 	// 		expect(verify(server)).true;
-// 	// 	});
+// 			expect(verify(server)).false;
+// 		});
 
-// 	// 	it('passes request to custom verifyClient', () => {
-// 	// 		const verifyClient = spy();
-// 	// 		const server = create({ verifyClient });
-// 	// 		const req = {};
+// 		it('returns false if custom verifyClient throws an error', () => {
+// 			const verifyClient = stub().throws(new Error('test'));
+// 			const server = create({ ws, verifyClient });
 
-// 	// 		verify(server, { req });
-// 	// 		assert.calledWith(verifyClient, req);
-// 	// 	});
+// 			expect(verify(server)).false;
+// 		});
 
-// 	// 	it('returns false if custom verifyClient returns false', () => {
-// 	// 		const verifyClient = stub().returns(false);
-// 	// 		const server = create({ verifyClient });
+// 		it('reports error if custom verifyClient throws an error', () => {
+// 			const error = new Error('test');
+// 			const errorHandler: any = { handleError() { } };
+// 			const handleError = stub(errorHandler, 'handleError');
+// 			const verifyClient = stub().throws(error);
+// 			const server = create({ ws, verifyClient }, errorHandler);
 
-// 	// 		expect(verify(server)).false;
-// 	// 	});
+// 			verify(server);
+// 			assert.calledWith(handleError, null, error);
+// 		});
+// 	});
 
-// 	// 	it('returns true if custom verifyClient returns true', () => {
-// 	// 		const verifyClient = stub().returns(true);
-// 	// 		const server = create({ verifyClient });
+// 	describe('createClientOptions()', () => {
+// 		it('returns client options', () => {
+// 			const options = createClientOptions(Server1, Client1, { ws, id: 'socket' });
 
-// 	// 		expect(verify(server)).true;
-// 	// 	});
-
-// 	// 	it('returns false if client limit is reached', async () => {
-// 	// 		const server = create({ clientLimit: 1 });
-// 	// 		await server.connectClient();
-
-// 	// 		expect(verify(server)).false;
-// 	// 	});
-
-// 	// 	it('returns false if custom verifyClient throws an error', () => {
-// 	// 		const verifyClient = stub().throws(new Error('test'));
-// 	// 		const server = create({ verifyClient });
-
-// 	// 		expect(verify(server)).false;
-// 	// 	});
-
-// 	// 	it('reports error if custom verifyClient throws an error', () => {
-// 	// 		const error = new Error('test');
-// 	// 		const errorHandler: any = { handleError() { } };
-// 	// 		const handleError = stub(errorHandler, 'handleError');
-// 	// 		const verifyClient = stub().throws(error);
-// 	// 		const server = create({ verifyClient }, errorHandler);
-
-// 	// 		verify(server);
-// 	// 		assert.calledWith(handleError, null, error);
-// 	// 	});
-// 	// });
-
-// 	// describe('createClientOptions()', () => {
-// 	// 	it('returns client options', () => {
-// 	// 		const options = createClientOptions(Server1, Client1, { id: 'socket' });
-
-// 	// 		expect(withoutUndefinedProperties(options)).eql({ hash: options.hash, ...CLIENT_OPTIONS });
-// 	// 	});
-//     //});
+// 			expect(withoutUndefinedProperties(options)).eql({ hash: options.hash, ...CLIENT_OPTIONS });
+// 		});
+// 	});
 // });
+// >>>>>>> master

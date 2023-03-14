@@ -72,7 +72,9 @@ interface PartialGlobalConfig {
 	nativePing?: number;
 }
 
+
 export type GlobalConfig = PartialGlobalConfig & (ServerAppOption | PortOption);
+
 
 export interface InternalServer {
 	// state
@@ -100,17 +102,19 @@ export interface InternalServer {
 	serverMethods: MethodDef[];
 	clientMethods: string[];
 	rateLimits: (RateLimitDef | undefined)[];
+	resultBinary: boolean[];
 	verifyClient: (req: HttpRequest) => boolean;
 	createClient?: (client: SocketServerClient, send: (data: string | Uint8Array | Buffer) => void) => SocketServerClient;
 	// methods
 	createServer: CreateServerMethod;
-	handleResult: (send: Send, obj: ClientState, funcId: number, funcName: string, result: Promise<any>, messageId: number) => void;
+	handleResult: (send: Send, obj: ClientState, funcId: number, funcName: string, funcBinary: boolean, result: Promise<any>, messageId: number) => void;
 	packetHandler: PacketHandler;
 	server: Server;
 }
 
-
 export interface PartialServerOptions extends CommonOptions {
+	/** ping interval in milliseconds, ping disabled if not specified or 0 */
+	pingInterval?: number;
 	/** time after after last message from client when server assumes client is not responding (in milliseconds) */
 	connectionTimeout?: number;
 	/** limit connections to one per generated token */
@@ -151,6 +155,7 @@ export interface PartialServerOptions extends CommonOptions {
 	client?: MethodDef[];
 	server?: MethodDef[];
 }
+
 export type ServerOptions = PartialServerOptions & (PortOption | ServerAppOption)
 
 type ForceCloseFn = ((force: false, code?: number | undefined, shortMessage?: RecognizedString | undefined) => void);
@@ -164,3 +169,4 @@ export interface UWSSocketEvents {
 	close: CloseFn & ForceCloseFn & GracefulCloseFn,
 	onClose: (code: number, message: ArrayBuffer) => void,
 }
+
