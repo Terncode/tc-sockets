@@ -118,10 +118,6 @@ module.exports = {
 		],
 	},
 	ignorePatterns: [
-		'build',
-		'tools',
-		'src/scripts',
-		'src/ts/generated/',
 		'node_modules'
 	],
 };

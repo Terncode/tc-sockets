@@ -140,6 +140,9 @@ import { App } from 'tc-sockets/uws';
 import { createServer } from 'tc-sockets';
 import { ExampleClient } from './client';
 import { ExampleServer } from './server';
+// code gen
+import { createCodeGenHandlers } from 'tc-sockets/dist/codeGenHandler';
+
 
 const app = App();
 
