@@ -1,9 +1,8 @@
-import * as express from 'express';
-import * as http from 'http';
 import * as path from 'path';
 import * as fs from 'fs';
 import { createServer, Method, Socket } from '../index';
 import { DemoClient } from './demoClient';
+import { App } from 'uWebSockets.js';
 
 const clients: DemoClient[] = [];
 
@@ -36,11 +35,10 @@ class DemoServer {
 }
 
 const PORT = 8071;
-const app = express();
-app.set('port', PORT);
 
-const server = http.createServer(app);
-const socket = createServer(DemoServer, DemoClient, client => new DemoServer(client), {
+const app = App();
+
+const socket = createServer(app, DemoServer, DemoClient, client => new DemoServer(client), {
 	port: PORT + 1,
 }, {
 	handleError: console.log,
@@ -48,10 +46,16 @@ const socket = createServer(DemoServer, DemoClient, client => new DemoServer(cli
 	handleRecvError: console.log,
 });
 
-app.get('/demo.js', (_, res) => res.sendFile(path.join(__dirname, 'demo.js')));
-app.get('/', (_, res) => {
-	const html = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'demo', 'demo.html'), 'utf8');
-	res.send(html.replace(/CONFIG/, JSON.stringify(socket.options())));
+app.get('/demo.js', async res => {
+	const data = fs.readFileSync(path.join(__dirname, 'demo.js'));
+	res.writeHeader('Content-Type', 'application/javascript');
+	res.end(data);
 });
-
-server.listen(app.get('port'), () => console.log('Listening on ' + app.get('port')));
+app.get('/', (res) => {
+	const html = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'demo', 'demo.html'), 'utf8');
+	res.writeHeader('Content-Type', 'text/html');
+	res.end(html.replace(/CONFIG/, JSON.stringify(socket.options())));
+});
+app.listen(PORT, () => {
+	console.log(`Listening on ${PORT}`);
+});

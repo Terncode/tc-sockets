@@ -3,17 +3,18 @@ import { getLength, cloneDeep, checkRateLimit2, noop } from '../common/utils';
 import { ErrorHandler, OriginalRequest } from './server';
 import { MessageType, Send, createPacketHandler, HandleResult, HandlerOptions, CustomPacketHandlers } from '../packet/packetHandler';
 import {
-	Server, ClientState, InternalServer, GlobalConfig, ServerHost, CreateServerMethod, CreateServer, ServerOptions, UWSSocketEvents, ServerAppOption, PortOption
+	Server, ClientState, InternalServer, GlobalConfig, ServerHost, CreateServerMethod, CreateServer, ServerOptions, UWSSocketEvents
 } from './serverInterfaces';
 import {
 	hasToken, createToken, getToken, getTokenFromClient, returnTrue, createOriginalRequest, defaultErrorHandler,
 	createServerOptions, optionsWithDefaults, toClientOptions, getQuery, callWithErrorHandling, parseRateLimitDef, getFullUrl,
 } from './serverUtils';
 import { BinaryReader, createBinaryReaderFromBuffer, getBinaryReaderBuffer } from '../packet/binaryReader';
-import { App, DISABLED, HttpRequest, RecognizedString, SHARED_COMPRESSOR, us_listen_socket, us_listen_socket_close, WebSocket } from 'uWebSockets.js';
+import { DISABLED, HttpRequest, RecognizedString, SHARED_COMPRESSOR, TemplatedApp, us_listen_socket, us_listen_socket_close, WebSocket } from 'uWebSockets.js';
 import * as HTTP from 'http';
 
 export function createServer<TServer, TClient>(
+	app: TemplatedApp,
 	serverType: new (...args: any[]) => TServer,
 	clientType: new (...args: any[]) => TClient,
 	createServer: CreateServer<TServer, TClient>,
@@ -22,35 +23,28 @@ export function createServer<TServer, TClient>(
 	log?: Logger,
 	customPacketHandlers?: CustomPacketHandlers
 ) {
-	return createServerRaw(createServer as CreateServerMethod, createServerOptions(serverType, clientType, options), errorHandler, log, customPacketHandlers);
+	return createServerRaw(app, createServer as CreateServerMethod, createServerOptions(serverType, clientType, options), errorHandler, log, customPacketHandlers);
 }
 
 export function createServerRaw(
-	createServer: CreateServerMethod, options: ServerOptions,
+	app: TemplatedApp, createServer: CreateServerMethod, options: ServerOptions,
 	errorHandler?: ErrorHandler, log?: Logger, customPacketHandlers?: CustomPacketHandlers
 ): Server {
-	const host = createServerHost({
-		path: options.path,
-		errorHandler,
-		log,
-		port: (options as PortOption).port,
-		app: (options as ServerAppOption).app,
-		perMessageDeflate: options.perMessageDeflate,
-		compression: options.compression,
-	}, customPacketHandlers);
+	const host = createServerHost(
+		app, {
+			path: options.path,
+			errorHandler,
+			log,
+			port: options.port,
+			perMessageDeflate: options.perMessageDeflate,
+			compression: options.compression,
+		}, customPacketHandlers);
 	const socket = host.socketRaw(createServer, { id: 'socket', ...options });
 	socket.close = host.close;
 	return socket;
 }
 
-export function createServerHost(globalConfig: GlobalConfig, customPacketHandlers?: CustomPacketHandlers): ServerHost {
-	if(!(globalConfig as ServerAppOption).app && !(globalConfig as PortOption).port) {
-		throw new Error('Port or uWebSockets.js app not provided');
-	}
-	if((globalConfig as ServerAppOption).app && (globalConfig as PortOption).port) {
-		throw new Error('Provide port or uWebSockets.js app but not both');
-	}
-	const uwsApp = (globalConfig as ServerAppOption).app || App();
+export function createServerHost(uwsApp: TemplatedApp, globalConfig: GlobalConfig, customPacketHandlers?: CustomPacketHandlers): ServerHost {
 	const {
 		path = '/ws',
 		log = console.log.bind(console),
@@ -70,6 +64,7 @@ export function createServerHost(globalConfig: GlobalConfig, customPacketHandler
 		idleTimeout: nativePing ? nativePing : undefined,
 
 		upgrade: (res, req, context) => {
+
 			if (upgradeReq) {
 				res.end(`HTTP/1.1 ${503} ${HTTP.STATUS_CODES[503]}\r\n\r\n`);
 				return;
@@ -84,6 +79,7 @@ export function createServerHost(globalConfig: GlobalConfig, customPacketHandler
 			const secWebSocketExtensions = req.getHeader('sec-websocket-extensions');
 
 			if (globalConfig.path && globalConfig.path !== url.split('?')[0].split('#')[0]) {
+				errorHandler.handleError(null, new Error(`${400} ${HTTP.STATUS_CODES[400]}`));
 				res.end(`HTTP/1.1 ${400} ${HTTP.STATUS_CODES[400]}\r\n\r\n`);
 				return;
 			}
@@ -100,9 +96,10 @@ export function createServerHost(globalConfig: GlobalConfig, customPacketHandler
 							secWebSocketExtensions,
 							context);
 					} catch (error) {
-						console.error(error);
+						errorHandler.handleError(null, error);
 					}
 				} else {
+					errorHandler.handleError(null, new Error(`${code} ${name}`));
 					res.end(`HTTP/1.1 ${code} ${name}\r\n\r\n`);
 				}
 			});
@@ -125,7 +122,6 @@ export function createServerHost(globalConfig: GlobalConfig, customPacketHandler
 				onMessage: noop,
 			};
 			connectSocket(upgradeReq, uwsSocketEvents);
-
 			connectedSockets.set(ws, uwsSocketEvents);
 			upgradeReq = undefined;
 		},
@@ -143,8 +139,8 @@ export function createServerHost(globalConfig: GlobalConfig, customPacketHandler
 	});
 
 	let socketToken: us_listen_socket | undefined;
-	if ((globalConfig as PortOption).port) {
-		const port = (globalConfig as PortOption).port;
+	if (globalConfig.port) {
+		const port = globalConfig.port;
 		uwsApp.listen(port, token => {
 			if (token) {
 				socketToken = token;
@@ -183,7 +179,6 @@ export function createServerHost(globalConfig: GlobalConfig, customPacketHandler
 				next(true, 200, 'OK');
 			}
 		} catch (e) {
-			errorHandler.handleError(null, e);
 			next(false, errorCode, errorName);
 		}
 	}
@@ -237,7 +232,8 @@ export function createServerHost(globalConfig: GlobalConfig, customPacketHandler
 		}
 	}
 
-	return { close, socket, socketRaw, app: uwsApp };
+	//@ts-ignore
+	return { close, socket, socketRaw, app: uwsApp};
 }
 
 function createInternalServer(
@@ -619,6 +615,7 @@ function connectClient(
 			callWithErrorHandling(() => serverActions.connected!(), () => { }, e => {
 				errorHandler.handleError(obj.client, e);
 				obj.client.disconnect(false, false, 'error on connected()');
+				uwsSocketEvents.close(true);
 			});
 		}
 	}
@@ -659,8 +656,6 @@ function connectClient(
 			errorHandler.handleError(obj.client, e);
 		}
 	};
-
-
 	Promise.resolve(server.createServer(obj.client))
 		.then(actions => {
 			if (isConnected) {

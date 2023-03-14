@@ -80,7 +80,7 @@ export function createOriginalRequest(request: HttpRequest): OriginalRequest {
 	return originalRequest;
 }
 export function getFullUrl(request: HttpRequest) {
-	return `${request.getUrl()}?${request.getQuery()}`;
+	return `${request.getUrl()}/?${request.getQuery()}`;
 }
 
 export function createClientOptions<TServer, TClient>(

@@ -51,17 +51,7 @@ export interface ServerHost {
 	app: TemplatedApp;
 }
 
-export interface PortOption {
-	/** Server port. Providing port will make library automatically handle socket connections **/
-	port: number
-}
-
-export interface ServerAppOption {
-	/** Server app. Providing uWebSockets.js app if you want to manually handle listening  **/
-	app: TemplatedApp
-}
-
-interface PartialGlobalConfig {
+export interface GlobalConfig {
 	path?: string;
 	errorHandler?: ErrorHandler;
 	perMessageDeflate?: boolean;
@@ -70,11 +60,8 @@ interface PartialGlobalConfig {
 	errorCode?: number;
 	errorName?: string;
 	nativePing?: number;
+	port?: number;
 }
-
-
-export type GlobalConfig = PartialGlobalConfig & (ServerAppOption | PortOption);
-
 
 export interface InternalServer {
 	// state
@@ -112,7 +99,7 @@ export interface InternalServer {
 	server: Server;
 }
 
-export interface PartialServerOptions extends CommonOptions {
+export interface ServerOptions extends CommonOptions {
 	/** ping interval in milliseconds, ping disabled if not specified or 0 */
 	pingInterval?: number;
 	/** time after after last message from client when server assumes client is not responding (in milliseconds) */
@@ -149,6 +136,8 @@ export interface PartialServerOptions extends CommonOptions {
 	errorIfNotConnected?: boolean;
 	/** prints to console generated packet handler code */
 	printGeneratedCode?: boolean;
+	/** Server port. Providing port will make library automatically handle socket connections **/
+	port?: number
 	/** send/recv handlers */
 	onSend?: OnSend;
 	onRecv?: OnRecv;
@@ -156,7 +145,6 @@ export interface PartialServerOptions extends CommonOptions {
 	server?: MethodDef[];
 }
 
-export type ServerOptions = PartialServerOptions & (PortOption | ServerAppOption)
 
 type ForceCloseFn = ((force: false, code?: number | undefined, shortMessage?: RecognizedString | undefined) => void);
 type GracefulCloseFn = ((force: true, code?: undefined, shortMessage?: undefined) => void)
