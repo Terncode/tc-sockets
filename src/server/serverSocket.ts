@@ -612,7 +612,7 @@ function connectClient(
 
 		if (server.debug) log('client connected');
 
-		server.packetHandler.sendString(send, '*version', MessageType.Version, 0, 0, [server.hash]);
+		server.packetHandler.sendString(send, '*version', MessageType.Version, 0, 0, server.hash);
 		server.clients.push(obj);
 
 		if (serverActions.connected) {
