@@ -7,10 +7,10 @@ import {
 	SocketClient, ClientExtensions, Bin, createServerHost, ServerHost } from '../index';
 import { MockApp, connectClient, getLastBehavior, createUpgrade } from './uwsMock';
 import { App, TemplatedApp } from 'uWebSockets.js';
-import { us_listen_socket, us_listen_socket_close } from '../uws';
 import { createClientOptions, randomString } from '../server/serverUtils';
 import { MessageType } from '../packet/packetHandler';
 import { createCodeGenHandlers } from '../codeGenHandler';
+import { us_listen_socket, us_listen_socket_close } from 'uWebSockets.js';
 
 @Socket({})
 class Server1 {
@@ -782,3 +782,4 @@ function withoutUndefinedProperties(obj: any) {
 
 	});
 });
+
