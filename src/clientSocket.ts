@@ -83,8 +83,12 @@ export function createClientSocket<TClient extends SocketClient, TServer extends
 			clientSocket.client.connected?.();
 		} else {
 			disconnect();
-			clientSocket.client.invalidVersion?.(version, clientSocket.options.hash!);
+			clientSocket.client.connectionError?.(`invalid version (expected: ${version}, actual: ${clientSocket.options.hash})`);
 		}
+	};
+
+	special['*error'] = (error: string) => {
+		clientSocket.client.connectionError?.(error);
 	};
 
 	function beforeunload() {
@@ -142,7 +146,7 @@ export function createClientSocket<TClient extends SocketClient, TServer extends
 					} else {
 						clientSocket.receivedSize += data.byteLength;
 						const reader = createBinaryReaderFromBuffer(data, 0, data.byteLength);
-						packet.recvBinary(clientSocket.client, reader, mockCallsList, 0);
+						packet.recvBinary(reader, clientSocket.client, special, mockCallsList, 0);
 					}
 				} catch (e) {
 					errorHandler.handleRecvError(e, typeof data === 'string' ? data : new Uint8Array(data));
@@ -162,8 +166,8 @@ export function createClientSocket<TClient extends SocketClient, TServer extends
 
 			if (options.debug) log('socket opened');
 
-			if (options.pingInterval) {
-				pingInterval = setInterval(sendPing, options.pingInterval);
+			if (options.clientPingInterval) {
+				pingInterval = setInterval(sendPing, options.clientPingInterval);
 			}
 		};
 
@@ -187,6 +191,7 @@ export function createClientSocket<TClient extends SocketClient, TServer extends
 			if (connecting) {
 				if (options.tokenLifetime && (lastTokenRefresh + options.tokenLifetime) < Date.now()) {
 					disconnect();
+					clientSocket.client.connectionError?.(`token expired`);
 				} else {
 					reconnectTimeout = setTimeout(() => {
 						connect();
@@ -257,10 +262,19 @@ export function createClientSocket<TClient extends SocketClient, TServer extends
 	function sendPing() {
 		try {
 			const now = Date.now();
-			const interval = clientSocket.options.pingInterval;
 
-			if (versionValidated && interval && (now - lastSend) > interval) {
-				send(supportsBinary ? pingBuffer : '');
+			if (versionValidated) {
+				const interval = clientSocket.options.clientPingInterval;
+
+				if (interval && (now - lastSend) > interval) {
+					send(supportsBinary ? pingBuffer : '');
+				}
+
+				const timeout = clientSocket.options.clientConnectionTimeout;
+
+				if (timeout && (now - clientSocket.lastPacket) > timeout) {
+					socket?.close();
+				}
 			}
 		} catch { }
 	}

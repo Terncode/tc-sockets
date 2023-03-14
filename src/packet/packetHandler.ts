@@ -13,9 +13,12 @@ import {
 
 const noop = () => {};
 
-interface AllocatorFunction {
-	(...args: any): any;
+interface Allocator {
 	allocate: number;
+}
+
+interface AllocatorFunction extends Allocator {
+	(...args: any): any;
 }
 
 function readBytesRaw(reader: BinaryReader) {
@@ -167,6 +170,7 @@ export const enum MessageType {
 	Version = 255,
 	Resolved = 254,
 	Rejected = 253,
+	Error = 252,
 }
 
 export interface FunctionHandler {
@@ -181,7 +185,7 @@ export interface RemoteState {
 	sentSize: number;
 }
 
-export type HandleResult = (funcId: number, funcName: string, result: Promise<any>, messageId: number) => void;
+export type HandleResult = (funcId: number, funcName: string, funcBinary: boolean, result: Promise<any>, messageId: number) => void;
 
 export interface HandlerOptions {
 	forceBinary?: boolean;
@@ -190,6 +194,7 @@ export interface HandlerOptions {
 	useBuffer?: boolean;
 	debug?: boolean;
 	development?: boolean;
+	useBinaryResultByDefault?: boolean;
 	onSend?: OnSend;
 	onRecv?: OnRecv;
 }
@@ -198,15 +203,12 @@ type CreateRemoteHandler = (
 	remote: any, send: Send, state: RemoteState, options: RemoteOptions, writer: BinaryWriter,
 ) => any;
 
-type LocalHandler = (
-	actions: any, reader: BinaryReader, callsList: number[], messageId: number, handleResult?: HandleResult
-) => void;
-
 export interface PacketHandler {
-	sendString(send: Send, name: string, id: number, args: any[]): number;
+	sendString(send: Send, name: string, id: number, funcId: number, messageId: number, result: any): number;
+	sendBinary(send: Send, name: string, id: number, funcId: number, messageId: number, result: any): number;
 	createRemote(remote: any, send: Send, state: RemoteState): void;
 	recvString(data: string, funcList: FuncList, specialFuncList: FuncList, handleFunction?: FunctionHandler): void;
-	recvBinary(actions: any, reader: BinaryReader, callsList: number[], messageId: number, handleResult?: HandleResult): void;
+	recvBinary(reader: BinaryReader, funcList: FuncList, specialFuncList: FuncList, callsList: number[], messageId: number, handleResult?: HandleResult): void;
 	writerBufferSize(): number;
 }
 
@@ -229,17 +231,18 @@ export function createPacketHandler(
 		.filter(x => x.binary)
 		.map(x => x.name));
 	const ignorePackets = new Set([...getIgnore(remote), ...getIgnore(local)]);
-	const recvBinary = createLocalHandler(local, onRecv);
+	const recvBinary = createLocalHandler(local, remoteNames, onRecv, options.useBinaryByDefault);
 	const createRemoteHandler = createCreateRemoteHandler(remote, options);
 	const writer = createBinaryWriter();
+	const strings = new Map();
 
-	function sendString(send: Send, name: string, id: number, args: any[]): number {
+	function sendString(send: Send, name: string, id: number, funcId: number, messageId: number, result: any): number {
 		try {
-			const data = JSON.stringify([id, ...args]);
+			const data = JSON.stringify([id, funcId, messageId, result]);
 			send(data);
 
 			if (debug && ignorePackets.has(name)) {
-				log(`SEND [${data.length}] (str)`, name, [id, ...args]);
+				log(`SEND [${data.length}] (str)`, name, [id, funcId, messageId, result]);
 			}
 
 			onSend?.(id, name, data.length, false);
@@ -250,19 +253,59 @@ export function createPacketHandler(
 		}
 	}
 
+	function sendBinary(send: Send, name: string, id: number, funcId: number, messageId: number, result: any): number {
+		while (true) {
+			try {
+				strings.clear();
+				writer.offset = 0;
+				writeUint8(writer, id);
+				writeUint8(writer, funcId);
+				writeUint32(writer, messageId);
+				writeAny(writer, result, strings);
+
+				const data = options.useBuffer ?
+					Buffer.from(writer.view.buffer, writer.view.byteOffset, writer.offset) :
+					new Uint8Array(writer.view.buffer, writer.view.byteOffset, writer.offset);
+
+				send(data);
+
+				if (debug && !ignorePackets.has(name)) {
+					log(`SEND [${data.length}] (bin)`, name, [id, funcId, messageId, result]);
+				}
+
+				if (onSend) onSend(id, name, data.length, true);
+				return data.length;
+			} catch (e) {
+				if (isSizeError(e)) {
+					resizeWriter(writer);
+				} else {
+					if (debug || development) throw e;
+					return 0;
+				}
+			}
+		}
+	}
+
 	function createRemote(remote: any, send: Send, state: RemoteState) {
 		(globalThis as any).remote = remote;
 		createRemoteHandler(remote, send, state, options, writer);
 	}
 
 	function recvString(data: string, funcList: FuncList, specialFuncList: FuncList, handleFunction = defaultHandler) {
-		const args = JSON.parse(data);
+		const args = JSON.parse(data) as any[];
 		const funcId = args.shift() | 0;
 		let funcName: string | undefined;
 		let funcSpecial = false;
 
 		if (funcId === MessageType.Version) {
 			funcName = '*version';
+			args.shift(); // skip funcId
+			args.shift(); // skip messageId
+			funcSpecial = true;
+		} else if (funcId === MessageType.Error) {
+			funcName = '*error';
+			args.shift(); // skip funcId
+			args.shift(); // skip messageId
 			funcSpecial = true;
 		} else if (funcId === MessageType.Rejected) {
 			funcName = '*reject:' + remoteNames[args.shift() | 0];
@@ -275,9 +318,9 @@ export function createPacketHandler(
 		}
 
 		const funcObj = funcSpecial ? specialFuncList : funcList;
-		const func = funcObj[funcName!];
+		const func = funcObj[funcName];
 
-		if (debug && ignorePackets.has(funcName)) {
+		if (debug && !ignorePackets.has(funcName)) {
 			log(`RECV [${data.length}] (str)`, funcName, args);
 		}
 
@@ -286,7 +329,7 @@ export function createPacketHandler(
 		}
 
 		if (func) {
-			handleFunction(funcId, funcName!, func, funcObj, args);
+			handleFunction(funcId, funcName, func, funcObj, args);
 		} else {
 			if (debug) log(`invalid message: ${funcName}`, args);
 			if (development) throw new Error(`Invalid packet (${funcName})`);
@@ -299,7 +342,7 @@ export function createPacketHandler(
 		return writer.view.byteLength;
 	}
 
-	return { sendString, createRemote, recvString, recvBinary, writerBufferSize };
+	return { sendString, createRemote, recvString, recvBinary, writerBufferSize, sendBinary };
 }
 type ResetFunction = () => void;
 
@@ -308,6 +351,7 @@ interface LocalHandlerDef {
 	name: string;
 	promise: boolean;
 	decoders?: ReaderFunction[];
+	binaryResult: boolean,
 	checkRateLimit: RateLimitChecker;
 	reset: ResetFunction;
 }
@@ -346,20 +390,22 @@ function createBinReadFnField(bin: Bin | any[]): ReaderFunction {
 }
 
 
-function createLocalHandler(methodsDef: MethodDef[], onRecv: OnRecv): LocalHandler {
+function createLocalHandler(methodsDef: MethodDef[], remoteNames: string[], onRecv: OnRecv, useBinaryResultByDefault = false) {
+	//recvBinary(reader: BinaryReader, funcList: FuncList, specialFuncList: FuncList, callsList: number[], messageId: number, handleResult?: HandleResult): void;
+
 	const methodsHandler: (LocalHandlerDef | undefined)[] = [];
 	const methods = getMethodsDefArray(methodsDef);
 	for (let i = 0; i < methods.length; i++) {
 		const name = methods[i][0];
 		const options = methods[i][1];
+		const binaryResult = options.binaryResult || useBinaryResultByDefault;
 		let checkRateLimit: RateLimitChecker = () => {};
 		if (options.rateLimit || options.serverRateLimit) {
 			const { limit, frame } = options.serverRateLimit ? parseRateLimit(options.serverRateLimit, false) : parseRateLimit(options.rateLimit!, true);
-
 			checkRateLimit = (packetId, callsList, messageId, handleResult) => {
 				if (!checkRateLimit3(packetId, callsList, limit, frame)) {
 					if (handleResult && options.promise) {
-						handleResult(packetId,name, Promise.reject(new Error('Rate limit exceeded')), messageId);
+						handleResult(packetId, name, binaryResult, Promise.reject(new Error('Rate limit exceeded')), messageId);
 					} else {
 						throw new Error(`Rate limit exceeded (${name})`);
 					}
@@ -378,6 +424,7 @@ function createLocalHandler(methodsDef: MethodDef[], onRecv: OnRecv): LocalHandl
 				decoders,
 				promise: !!options.promise,
 				checkRateLimit,
+				binaryResult,
 				reset: reseters.length ? () => reseters.forEach(f => f()) : noop
 			});
 		} else {
@@ -385,33 +432,57 @@ function createLocalHandler(methodsDef: MethodDef[], onRecv: OnRecv): LocalHandl
 				name,
 				promise: !!options.promise,
 				checkRateLimit,
+				binaryResult,
 				reset: noop
 			});
 		}
-
 	}
 
-
 	const strings: string[] = [];
-	const localHandler: LocalHandler = function (actions: any, reader: BinaryReader, callsList: number[], messageId: number, handleResult?: HandleResult | undefined) {
+	const localHandler: PacketHandler['recvBinary'] = (reader: BinaryReader, funcList: FuncList, specialFuncList: FuncList, callsList: number[], messageId: number, handleResult?: HandleResult) => {
 		strings.length = 0;
 		reader.offset = 0;
 		const packetId = readUint8(reader);
-		const def = methodsHandler[packetId]!;
-		if (def && def.decoders) {
-			const args: any[] = [];
-			def.checkRateLimit(packetId, callsList, packetId, handleResult);
-			def.reset();
-			onRecv(packetId, def.name, reader.view.byteLength, true, reader.view, actions);
-			for (let i = 0; i < def.decoders.length; i++) {
-				args.push(def.decoders[i](reader, strings as any, false));
+		switch (packetId) {
+			case MessageType.Version:
+			case MessageType.Error:
+			case MessageType.Resolved:
+			case MessageType.Rejected: {
+				const funcId = readUint8(reader);
+				const messageId = readUint32(reader);
+				const result = readAny(reader, strings, false);
+				if (packetId === MessageType.Version) {
+					specialFuncList!['*version']!(result);
+				} else if (packetId === MessageType.Error) {
+					specialFuncList!['*error']!(result);
+				} else if (packetId === MessageType.Resolved) {
+					specialFuncList![`*resolve:${remoteNames[funcId]}`]!(messageId, result);
+				} else if (packetId === MessageType.Rejected) {
+					specialFuncList![`*reject:${remoteNames[funcId]}`]!(messageId, result);
+				} else {
+				  throw new Error('Missing handling for packet ID: ' + packetId); // ureachable?
+				}
+				break;
 			}
-			const result = actions[def.name](...args);
-			if (def.promise && handleResult) {
-				handleResult(packetId, def.name, result, messageId);
+			default: {
+				const def = methodsHandler[packetId]!;
+				if (def && def.decoders) {
+					const args: any[] = [];
+					def.checkRateLimit(packetId, callsList, packetId, handleResult);
+					def.reset();
+					onRecv(packetId, def.name, reader.view.byteLength, true, reader.view, funcList);
+					for (let i = 0; i < def.decoders.length; i++) {
+						args.push(def.decoders[i](reader, strings as any, false));
+					}
+
+					const result = funcList![def.name]!(...args);
+					if (def.promise && handleResult) {
+						handleResult(packetId, def.name, def.binaryResult,result, messageId);
+					}
+				} else {
+					throw new Error(`Missing binary decoder for: ${def.name} (${packetId})`);
+				}
 			}
-		} else {
-			throw new Error(`Missing binary decoder for: ${def.name} (${packetId})`);
 		}
 	};
 	// (localHandler as any).debug = methodsHandler
@@ -449,7 +520,7 @@ function createBinWriteField(bin: Bin | any[]): WriterFunction {
 	}
 }
 
-function flattenArgs<T>(AllocateFnOrOther: (T | AllocatorFunction)[], reseters: ResetFunction[]) {
+function flattenArgs<T extends AllocatorFunction | {}>(AllocateFnOrOther: (T | AllocatorFunction)[], reseters: ResetFunction[]) {
 	const argsWriter: T[] = [];
 	for (const afor of AllocateFnOrOther) {
 		if ('allocate' in afor) {

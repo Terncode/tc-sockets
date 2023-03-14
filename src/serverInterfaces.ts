@@ -39,7 +39,7 @@ export interface Server {
 export type CreateServer<TServer, TClient> = (client: TClient & SocketServerClient) => (TServer | Promise<TServer>);
 export type CreateServerMethod = (client: any) => (SocketServer | Promise<SocketServer>);
 
-export interface ServerHost<TServer = any, TClient = any> {
+export interface ServerHost {
 	close(): void;
 	socket<TServer, TClient>(
 		serverType: new (...args: any[]) => TServer,
@@ -47,7 +47,7 @@ export interface ServerHost<TServer = any, TClient = any> {
 		createServer: CreateServer<TServer, TClient>,
 		options?: ServerOptions,
 	): Server;
-	socketRaw(createServer: CreateServerMethod | CreateServer<TServer, TClient>, options: ServerOptions): Server;
+	socketRaw(createServer: CreateServerMethod, options: ServerOptions): Server;
 	upgrade(request: any, socket: any): void;
 }
 
@@ -87,16 +87,19 @@ export interface InternalServer {
 	serverMethods: MethodDef[];
 	clientMethods: string[];
 	rateLimits: (RateLimitDef | undefined)[];
+	resultBinary: boolean[];
 	verifyClient: (req: IncomingMessage) => boolean;
 	createClient?: (client: SocketServerClient, send: (data: string | Uint8Array | Buffer) => void) => SocketServerClient;
 	// methods
 	createServer: CreateServerMethod;
-	handleResult: (send: Send, obj: ClientState, funcId: number, funcName: string, result: Promise<any>, messageId: number) => void;
+	handleResult: (send: Send, obj: ClientState, funcId: number, funcName: string, funcBinary: boolean, result: Promise<any>, messageId: number) => void;
 	packetHandler: PacketHandler;
 	server: Server;
 }
 
 export interface ServerOptions extends CommonOptions {
+	/** ping interval in milliseconds, ping disabled if not specified or 0 */
+	pingInterval?: number;
 	/** time after after last message from client when server assumes client is not responding (in milliseconds) */
 	connectionTimeout?: number;
 	/** limit connections to one per generated token */

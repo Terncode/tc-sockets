@@ -58,7 +58,7 @@ describe('ClientSocket', () => {
 			// '',
 			// '',
 		],
-		pingInterval: 1000,
+		clientPingInterval: 1000,
 		requestParams: { foo: 'bar', x: 5 },
 		reconnectTimeout: 1000, // prevent immediate reconnect changing lastWebSocket
 	};
@@ -68,7 +68,7 @@ describe('ClientSocket', () => {
 
 	function connectLastWebSocket() {
 		lastWebSocket.onopen();
-		lastWebSocket.onmessage({ data: JSON.stringify([MessageType.Version, '123']) });
+		lastWebSocket.onmessage({ data: JSON.stringify([MessageType.Version, 0, 0, '123']) });
 	}
 
 	before(() => {
@@ -88,32 +88,42 @@ describe('ClientSocket', () => {
 		service = createClientSocket<Client, Server>(clientOptions, undefined, errorHandler);
 	});
 
-	describe('invalidVersion', () => {
+	describe('connectionError', () => {
 		it('should not be called if version is correct', () => {
-			service.client.invalidVersion = () => { };
-			const invalidVersion = stub(service.client, 'invalidVersion');
+			service.client.connectionError = () => { };
+			const connectionError = stub(service.client, 'connectionError');
 			service.connect();
 
-			lastWebSocket.onmessage({ data: JSON.stringify([MessageType.Version, '123']) });
+			lastWebSocket.onmessage({ data: JSON.stringify([MessageType.Version, 0, 0, '123']) });
 
-			assert.notCalled(invalidVersion);
+			assert.notCalled(connectionError);
 		});
 
 		it('should be called if version is incorrect', () => {
-			service.client.invalidVersion = () => { };
-			const invalidVersion = stub(service.client, 'invalidVersion');
+			service.client.connectionError = () => { };
+			const connectionError = stub(service.client, 'connectionError');
 			service.connect();
 
-			lastWebSocket.onmessage({ data: JSON.stringify([MessageType.Version, '321']) });
+			lastWebSocket.onmessage({ data: JSON.stringify([MessageType.Version, 0, 0, '321']) });
 
-			assert.calledOnce(invalidVersion);
+			assert.calledOnce(connectionError);
 		});
 
 		it('should do nothing if there is no callback', () => {
-			service.client.invalidVersion = undefined;
+			service.client.connectionError = undefined;
 			service.connect();
 
-			lastWebSocket.onmessage({ data: JSON.stringify([MessageType.Version, '321']) });
+			lastWebSocket.onmessage({ data: JSON.stringify([MessageType.Version, 0, 0, '321']) });
+		});
+
+		it('should report error', () => {
+			service.client.connectionError = () => { };
+			const connectionError = stub(service.client, 'connectionError');
+			service.connect();
+
+			lastWebSocket.onmessage({ data: JSON.stringify([MessageType.Error, 0, 0, 'foo']) });
+
+			assert.calledWith(connectionError, 'foo');
 		});
 	});
 
@@ -121,7 +131,7 @@ describe('ClientSocket', () => {
 	// 	it('should respond to empty message with ping', () => {
 	// 		service.connect();
 	// 		const send = stub(lastWebSocket, 'send');
-	// 		lastWebSocket.onmessage({ data: JSON.stringify([MessageType.Version, '123']) });
+	// 		lastWebSocket.onmessage({ data: JSON.stringify([MessageType.Version, 0, 0, '123']) });
 
 	// 		lastWebSocket.onmessage({ data: '' });
 
@@ -131,7 +141,7 @@ describe('ClientSocket', () => {
 	// 	it('should not send ping if connection is not open', () => {
 	// 		service.connect();
 	// 		const send = stub(lastWebSocket, 'send');
-	// 		lastWebSocket.onmessage({ data: JSON.stringify([MessageType.Version, '123']) });
+	// 		lastWebSocket.onmessage({ data: JSON.stringify([MessageType.Version, 0, 0, '123']) });
 	// 		lastWebSocket.readyState = WebSocket.CLOSED;
 
 	// 		lastWebSocket.onmessage({ data: '' });
@@ -142,7 +152,7 @@ describe('ClientSocket', () => {
 	// 	it('should not respond to empty message with ping', () => {
 	// 		service.connect();
 	// 		const send = stub(lastWebSocket, 'send');
-	// 		lastWebSocket.onmessage({ data: JSON.stringify([MessageType.Version, '123']) });
+	// 		lastWebSocket.onmessage({ data: JSON.stringify([MessageType.Version, 0, 0, '123']) });
 
 	// 		lastWebSocket.onmessage({ data: '' });
 	// 		lastWebSocket.onmessage({ data: '' });
@@ -230,7 +240,7 @@ describe('ClientSocket', () => {
 			service.connect();
 			const close = stub(lastWebSocket, 'close');
 			lastWebSocket.onopen();
-			lastWebSocket.onmessage({ data: JSON.stringify([MessageType.Version, '123']) });
+			lastWebSocket.onmessage({ data: JSON.stringify([MessageType.Version, 0, 0, '123']) });
 
 			service.disconnect();
 
