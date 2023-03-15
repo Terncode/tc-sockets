@@ -1,5 +1,5 @@
 import { FuncList, Logger, getNames, getIgnore, MethodDef, OnSend, OnRecv, Bin, RemoteOptions, getMethodsDefArray } from '../common/interfaces';
-import { isBinaryOnlyPacket, parseRateLimit, checkRateLimit3 } from '../common/utils';
+import { isBinaryOnlyPacket, parseRateLimit, checkRateLimit3, noop } from '../common/utils';
 import {
 	writeUint8, writeInt16, writeUint16, writeUint32, writeInt32, writeFloat64, writeFloat32, writeBoolean,
 	writeString, writeArrayBuffer, writeUint8Array, writeInt8, writeArrayHeader,
@@ -10,8 +10,6 @@ import {
 	readString, readArrayBuffer, readUint8Array, readArray, readBytes, BinaryReader, readAny,//, readLength
 	readLength
 } from './binaryReader';
-
-const noop = () => {};
 
 interface Allocator {
 	allocate: number;
@@ -56,7 +54,7 @@ function createReadBytesRange() {
 				const result = array ? array.byteLength : 0;
 				return result;
 			default:
-				return null;noop;
+				return null;
 		}
 	};
 	readBytesRangeViewHandler.reset = () => {

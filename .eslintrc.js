@@ -54,6 +54,7 @@ module.exports = {
 		'prefer-rest-params': 'off',
 		'no-debugger': 'error',
 		'no-eval': 'error',
+		'prefer-const': 'error',
 		'no-redeclare': 'off',
 		'no-underscore-dangle': 'off',
 		'no-multiple-empty-lines': [
@@ -100,7 +101,6 @@ module.exports = {
 		'no-empty-pattern': 'off',
 		'no-cond-assign': 'off',
 		'no-unused-vars': 'off',
-		'prefer-const': 'off',
 		'id-denylist': 'off',
 		'id-match': 'off',
 		'no-empty': 'off',

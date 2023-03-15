@@ -210,7 +210,7 @@ export function generateRemoteHandlerCode(methods: MethodDef[], handlerOptions: 
 	for (const method of methods) {
 		const name = typeof method === 'string' ? method : method[0];
 		const options = typeof method === 'string' ? {} : method[1];
-		let args = [];
+		const args = [];
 
 		if (options.binary) {
 			for (let i = 0, j = 0; i < options.binary.length; i++) {
