@@ -124,25 +124,6 @@ export class ExampleServer implements IExampleServer {
 
 #### Start server
 
-### With node http server
-```typescript
-import { App } from 'uWebSockets.js';
-import { createServer } from 'tc-sockets';
-import { ExampleClient } from './client';
-import { ExampleServer } from './server';
-// code gen
-import { createCodeGenHandlers } from 'tc-sockets/dist/codeGenHandler';
-
-const app = App();
-const wsServer = createServer(app, ExampleServer, ExampleClient, client => new Server(client)/*, undefined, undefined, createCodeGenHandlers()*/);
-
-
-const wsServer = createServer(ExampleServer, ExampleClient, client => new Server(client));
-
-app.listen(12345, () => console.log('Server listening...'));
-```
-
-### With uws app http server
 ```typescript
 import { App } from 'uWebSockets.js';
 import { createServer } from 'tc-sockets';
