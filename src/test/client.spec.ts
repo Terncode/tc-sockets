@@ -41,9 +41,7 @@ interface Server extends SocketServer {
 }
 
 [
-	{ name: 'Code generation', codeGenHandler: {
-		...createCodeGenHandlers(),
-	} },
+	{ name: 'Code generation', codeGenHandler: createCodeGenHandlers() },
 	{ name: 'Code mapping', codeGenHandler: undefined },
 ].forEach(({name, codeGenHandler }) => {
 	describe(name, () => {
@@ -211,9 +209,9 @@ interface Server extends SocketServer {
 				});
 
 				it('should add event listener that closes the socket', () => {
-					let addEventListener = stub(window, 'addEventListener');
+					const addEventListener = stub(window, 'addEventListener');
 					service.connect();
-					let close = stub(lastWebSocket, 'close');
+					const close = stub(lastWebSocket, 'close');
 
 					addEventListener.args[0][1]();
 					lastWebSocket.onclose({});

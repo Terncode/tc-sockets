@@ -1,5 +1,4 @@
 import { delay, stringToArrayBuffer } from './common';
-// import * as http from 'http';
 import { expect } from 'chai';
 import { assert, stub, SinonFakeTimers, useFakeTimers, SinonStub, match } from 'sinon';
 import {
