@@ -1,14 +1,15 @@
 # tc-sockets
 
-* This repository is a fork of [ag-sockets](https://github.com/Agamnentzar/ag-sockets)
+Library for communication via WebSockets.
 
-Library for communication via WebSockets
+This repository is a fork of [ag-sockets](https://github.com/Agamnentzar/ag-sockets)
+
 
 ## What does this fork offer?
   * Ability to to run the library without code generator therefor it should be safe to run it without `unsafe-eval` in `CSP`
   * Adds uWebSockets.js version 20.10.0 or higher compatibly
 
-This fork has different folder structure than original
+This fork has slightly different folder structure than original
 
 ## Dependencies
 
