@@ -365,7 +365,7 @@ interface LocalHandlerDef {
 
 function createBinReadFnField(bin: Bin | any[]): ReaderFunction {
 	if (Array.isArray(bin)) {
-		if(bin.length === 1) {
+		if (bin.length === 1) {
 			const readerFunction = createBinReadFnField(bin[0]);
 
 			const readArrayOneInner: ReaderFunction = function (reader, strings, cloneTypedArrays) {
@@ -558,7 +558,7 @@ function stringWriter(index: number, name: string, send: Send, state: RemoteStat
 			state.sentSize += json.length;
 			onSend(index, name, json.length, false);
 			return true;
-		} catch(_) {
+		} catch (_) {
 			return false;
 		}
 	};
@@ -576,7 +576,7 @@ function getBuffer(writer: BinaryWriter, useBuffer: true | false | undefined) {
 function getBufferLen(buffer: Uint8Array, useBuffer: false | undefined): number;
 function getBufferLen(buffer: Buffer, useBuffer: true): number;
 function getBufferLen(buffer: Buffer | Uint8Array, useBuffer: true | false | undefined) {
-	if(useBuffer) {
+	if (useBuffer) {
 		return (buffer as Buffer).length;
 	} else {
 		return (buffer as Uint8Array).byteLength;

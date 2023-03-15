@@ -29,7 +29,6 @@ module.exports = {
 			'single',
 			{ allowTemplateLiterals: true, avoidEscape: true  },
 		],
-		'prefer-rest-params': 'off',
 		'linebreak-style': [
 			'warn',
 			'unix'
@@ -47,9 +46,12 @@ module.exports = {
 			  'allowSingleExtends': true
 			}
 		],
+		'@typescript-eslint/no-this-alias': 'off',
 		'no-trailing-spaces': 'warn',
 		'no-unused-labels': 'error',
+		'keyword-spacing': ['warn', { 'before': true, 'after': true }],
 		'no-new-wrappers': 'error',
+		'prefer-rest-params': 'off',
 		'no-debugger': 'error',
 		'no-eval': 'error',
 		'no-redeclare': 'off',
