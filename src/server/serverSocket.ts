@@ -57,7 +57,7 @@ export function createServerHost(uwsApp: TemplatedApp, globalConfig: GlobalConfi
 	const servers: InternalServer[] = [];
 
 	let upgradeReq: OriginalRequest | undefined;
-	let connectedSockets = new Map<WebSocket, UWSSocketEvents>();
+	const connectedSockets = new Map<WebSocket, UWSSocketEvents>();
 	uwsApp.ws(path, {
 		compression: globalConfig.compression ? globalConfig.compression : (perMessageDeflate ? SHARED_COMPRESSOR : DISABLED),
 		sendPingsAutomatically: !!nativePing,
@@ -79,7 +79,6 @@ export function createServerHost(uwsApp: TemplatedApp, globalConfig: GlobalConfi
 			const secWebSocketExtensions = req.getHeader('sec-websocket-extensions');
 
 			if (globalConfig.path && globalConfig.path !== url.split('?')[0].split('#')[0]) {
-				errorHandler.handleError(null, new Error(`${400} ${HTTP.STATUS_CODES[400]}`));
 				res.end(`HTTP/1.1 ${400} ${HTTP.STATUS_CODES[400]}\r\n\r\n`);
 				return;
 			}
@@ -99,7 +98,7 @@ export function createServerHost(uwsApp: TemplatedApp, globalConfig: GlobalConfi
 						errorHandler.handleError(null, error);
 					}
 				} else {
-					errorHandler.handleError(null, new Error(`${code} ${name}`));
+					errorHandler.handleError(null, new Error(`Verify client ${code} ${name}`));
 					res.end(`HTTP/1.1 ${code} ${name}\r\n\r\n`);
 				}
 			});
@@ -179,7 +178,7 @@ export function createServerHost(uwsApp: TemplatedApp, globalConfig: GlobalConfi
 				next(true, 200, 'OK');
 			}
 		} catch (e) {
-			next(false, errorCode, errorName);
+			next(false, 500, HTTP.STATUS_CODES[500] as string);
 		}
 	}
 
