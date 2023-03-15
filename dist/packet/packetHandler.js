@@ -15,7 +15,6 @@ var interfaces_1 = require("../common/interfaces");
 var utils_1 = require("../common/utils");
 var binaryWriter_1 = require("./binaryWriter");
 var binaryReader_1 = require("./binaryReader");
-var noop = function () { };
 function readBytesRaw(reader) {
     var length = reader.view.byteLength - (reader.view.byteOffset + reader.offset);
     return (0, binaryReader_1.readBytes)(reader, length);
@@ -51,7 +50,6 @@ function createReadBytesRange() {
                 return result;
             default:
                 return null;
-                noop;
         }
     };
     readBytesRangeViewHandler.reset = function () {
@@ -344,7 +342,7 @@ function createLocalHandler(methodsDef, remoteNames, onRecv, useBinaryResultByDe
                 promise: !!options.promise,
                 checkRateLimit: checkRateLimit,
                 binaryResult: binaryResult,
-                reset: reseters_1.length ? function () { return reseters_1.forEach(function (f) { return f(); }); } : noop
+                reset: reseters_1.length ? function () { return reseters_1.forEach(function (f) { return f(); }); } : utils_1.noop
             });
         }
         else {
@@ -353,7 +351,7 @@ function createLocalHandler(methodsDef, remoteNames, onRecv, useBinaryResultByDe
                 promise: !!options.promise,
                 checkRateLimit: checkRateLimit,
                 binaryResult: binaryResult,
-                reset: noop
+                reset: utils_1.noop
             });
         }
     };
@@ -514,7 +512,7 @@ function createCreateRemoteHandler(methodsDef, handlerOptions) {
             if (options_1.binary) {
                 var reseters_2 = [];
                 var argsWriter_1 = flattenArgs(options_1.binary.map(createBinWriteField), reseters_2);
-                var reset_1 = reseters_2.length ? function () { return reseters_2.forEach(function (f) { return f(); }); } : noop;
+                var reset_1 = reseters_2.length ? function () { return reseters_2.forEach(function (f) { return f(); }); } : utils_1.noop;
                 var len_2 = argsWriter_1.length;
                 remote[name_2] = function () {
                     if (state.supportsBinary) {

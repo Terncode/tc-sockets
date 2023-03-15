@@ -60,7 +60,6 @@ function createServerHost(uwsApp, globalConfig, customPacketHandlers) {
             var secWebSocketProtocol = req.getHeader('sec-websocket-protocol');
             var secWebSocketExtensions = req.getHeader('sec-websocket-extensions');
             if (globalConfig.path && globalConfig.path !== url.split('?')[0].split('#')[0]) {
-                errorHandler.handleError(null, new Error("".concat(400, " ").concat(HTTP.STATUS_CODES[400])));
                 res.end("HTTP/1.1 ".concat(400, " ").concat(HTTP.STATUS_CODES[400], "\r\n\r\n"));
                 return;
             }
@@ -78,7 +77,7 @@ function createServerHost(uwsApp, globalConfig, customPacketHandlers) {
                     }
                 }
                 else {
-                    errorHandler.handleError(null, new Error("".concat(code, " ").concat(name)));
+                    errorHandler.handleError(null, new Error("Verify client ".concat(code, " ").concat(name)));
                     res.end("HTTP/1.1 ".concat(code, " ").concat(name, "\r\n\r\n"));
                 }
             });
@@ -162,7 +161,7 @@ function createServerHost(uwsApp, globalConfig, customPacketHandlers) {
             }
         }
         catch (e) {
-            next(false, errorCode, errorName);
+            next(false, 500, HTTP.STATUS_CODES[500]);
         }
     }
     function close() {

@@ -1,13 +1,28 @@
 # tc-sockets
 
-Library for communication via WebSockets. This project uses [uWebSockets.js](https://github.com/uNetworking/uWebSockets.js/)
+<b>This branch contains distribution files. Check main branch for source</b>
 
-This branch contains dist files. Check other branches for source 
+Library for communication via WebSockets.
+
+This repository is a fork of [ag-sockets](https://github.com/Agamnentzar/ag-sockets)
+
+
+## What does this fork offer?
+  * Ability to to run the library without code generator therefor it should be safe to run it without `unsafe-eval` in `CSP`
+  * Adds uWebSockets.js version 20.19.0 or higher compatibly
+
+This fork has slightly different folder structure than original
+
+## Dependencies
+
+This package has a peer dependency on `uWebSockets.js` version v20.19.0 or higher.
+
 
 ## Installation
+Distribution files are currently available on uws.js-dist branch 
 
+Using npm
 ```bash
-# From my experience this command takes really long time 
 npm i "https://github.com/Terncode/tc-sockets#uws.js-dist" 
 ```
 
@@ -17,9 +32,23 @@ The following code only works with typescript
 
 ```typescript
 import { createServer } from 'tc-sockets';
+import { App } from 'uWebSockets.js';
+const app = App();
 
 // ...
-const wsServer = createServer({ arrayBuffer: true, port: 12345 });
+const wsServer = createServer(app, ... { arrayBuffer: true });
+
+```
+
+if for whatever reason you need to have code generator code
+```typescript
+import { createServer } from 'tc-sockets';
+import { createCodeGenHandlers } from 'tc-sockets/dist/codeGenHandler';
+import { App } from 'uWebSockets.js';
+const app = App();
+// ...
+
+const wsServer = createServer(app, ..., { arrayBuffer: true }, undefined, undefined, createCodeGenHandler());
 ```
 
 ### Set up sockets
@@ -99,35 +128,19 @@ export class ExampleServer implements IExampleServer {
 
 #### Start server
 
-### With node http server
 ```typescript
-import * as http from 'http';
+import { App } from 'uWebSockets.js';
 import { createServer } from 'tc-sockets';
 import { ExampleClient } from './client';
 import { ExampleServer } from './server';
+// code gen
+import { createCodeGenHandlers } from 'tc-sockets/dist/codeGenHandler';
 
-const server = http.createServer();
-
-const wsServer = createServer(ExampleServer, ExampleClient, client => new Server(client), {
-  port: 12346, // Note you need dedicated port to run sockets
-});
-
-server.listen(12345, () => console.log('server listening...'));
-```
-
-### With uws app http server
-```typescript
-import { App } from 'tc-sockets/uws';
-import { createServer } from 'tc-sockets';
-import { ExampleClient } from './client';
-import { ExampleServer } from './server';
 
 const app = App();
 
 const server = http.createServer(app);
-const wsServer = createServer(ExampleServer, ExampleClient, client => new Server(client), {
-  app
-});
+const wsServer = createServer(ExampleServer, ExampleClient, client => new Server(client));
 
 app.listen(12345, (token) => {
   if (token) {
@@ -142,12 +155,15 @@ app.listen(12345, (token) => {
 #### Connect client
 
 ```typescript
-import { createClientSocket } from 'tc-sockets/';
+import { createClientSocket } from 'tc-sockets';
 import { ExampleClient } from './client';
 import { IExampleClient, IExampleServer } from './interfaces';
+// code gen
+import { createCodeGenHandlers } from 'tc-sockets/dist/codeGenHandler';
 
-const options = // get 'wsServer.options()' from server side
-const service = createClientSocket<IExampleClient, IExampleServer>(options);
+
+const options = {}
+const service = createClientSocket<IExampleClient, IExampleServer>(options/*, undefined, undefined, undefined, undefined, createCodeGenHandlers()*/);
 service.client = new ExampleClient(service.server);
 service.connect();
 ```
