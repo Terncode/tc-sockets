@@ -7,7 +7,7 @@ This repository is a fork of [ag-sockets](https://github.com/Agamnentzar/ag-sock
 
 ## What does this fork offer?
   * Ability to to run the library without code generator therefor it should be safe to run it without `unsafe-eval` in `CSP`
-  * Adds uWebSockets.js version 20.19.0 or higher compatibly
+  * Adds uWebSockets.js version 20.19.0 or higher compatibility
 
 This fork has slightly different folder structure than original
 
