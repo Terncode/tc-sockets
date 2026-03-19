@@ -481,8 +481,6 @@ function createLocalHandler(methodsDef: MethodDef[], remoteNames: string[], onRe
 	}
 
 	const localHandler: PacketHandler['recvBinary'] = (reader: BinaryReader, funcList: FuncList, specialFuncList: FuncList, callsList: number[], messageId: number, strings: string[], handleResult?: HandleResult) => {
-		//strings.length = 0;
-		//reader.offset = 0;
 		const packetId = readUint8(reader);
 		switch (packetId) {
 			case MessageType.Version:
@@ -609,15 +607,15 @@ function stringWriter(index: number, name: string, send: Send, state: RemoteStat
 	};
 }
 
-// function getBuffer(writer: BinaryWriter, useBuffer: true): Buffer;
-// function getBuffer(writer: BinaryWriter, useBuffer: false | undefined): Uint8Array;
-// function getBuffer(writer: BinaryWriter, useBuffer: true | false | undefined) {
-// 	if (useBuffer) {
-// 		return Buffer.from(writer.view.buffer, writer.view.byteOffset, writer.offset);
-// 	} else {
-// 		return new Uint8Array(writer.view.buffer, writer.view.byteOffset, writer.offset);
-// 	}
-// }
+function getBuffer(writer: BinaryWriter, useBuffer: true): Buffer;
+function getBuffer(writer: BinaryWriter, useBuffer: false | undefined): Uint8Array;
+function getBuffer(writer: BinaryWriter, useBuffer: true | false | undefined) {
+	if (useBuffer) {
+		return Buffer.from(writer.view.buffer, writer.view.byteOffset, writer.offset);
+	} else {
+		return new Uint8Array(writer.view.buffer, writer.view.byteOffset, writer.offset);
+	}
+}
 function getBufferLen(buffer: Uint8Array, useBuffer: false | undefined): number;
 function getBufferLen(buffer: Buffer, useBuffer: true): number;
 function getBufferLen(buffer: Buffer | Uint8Array, useBuffer: true | false | undefined) {
@@ -644,35 +642,35 @@ function createCreateRemoteHandler(methodsDef: MethodDef[], handlerOptions: Hand
 				const len = argsWriter.length;
 				remote[name] = function() {
 					if (state.supportsBinary) {
-						try {
-							reset();
-							const stringsSize = strings.size();
-							const writerOffset = writer.offset;
-							while (true) {
-								strings.trimTo(stringsSize);
-								writer.offset = writerOffset;
+						const stringsSize = strings.size();
+						const writerOffset = writer.offset;
+						while (true) {
+							try {
+								reset();
+							    strings.trimTo(stringsSize);
+                				writer.offset = writerOffset;
+
 								writeUint8(writer, i);
 								for (let j = 0; j < len; j++) {
 									argsWriter[j](writer, arguments[j], strings);
 								}
 								break;
-							}
-						} catch (error) {
-							if (isSizeError(error)) {
-								resizeWriter(writer);
-							} else {
-								return false;
+							} catch (error) {
+								if (isSizeError(error)) {
+									resizeWriter(writer);
+								} else {
+									return false;
+								}
 							}
 						}
 						if (!state.batch) {
-							const buffer = new Uint8Array(writer.view.buffer, writer.view.byteOffset, writer.offset);
+							const buffer = getBuffer(writer, handlerOptions.useBuffer as any);
 							send(buffer);
-							state.sentSize += buffer.byteLength;
+							state.sentSize += getBufferLen(buffer, handlerOptions.useBuffer as any);
 							onSend(i, name, getBufferLen(buffer, handlerOptions.useBuffer as any), true);
 
-
 							strings.clear();
-							writer.offset = 0;
+            				writer.offset = 0;
 						}
 						return true;
 					} else {
