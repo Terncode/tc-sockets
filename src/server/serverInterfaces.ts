@@ -1,7 +1,9 @@
 import { ClientOptions, SocketServer, Logger, MethodDef, CommonOptions, OnSend, OnRecv, RateLimitDef } from '../common/interfaces';
 import { SocketServerClient, ErrorHandler } from './server';
-import { Send, PacketHandler } from '../packet/packetHandler';
-import { CompressOptions, HttpRequest, RecognizedString, TemplatedApp, WebSocket } from 'uWebSockets.js';
+import { Send, PacketHandler, RemoteState } from '../packet/packetHandler';
+import type {
+	CompressOptions, HttpRequest, RecognizedString, TemplatedApp, us_listen_socket, WebSocket
+} from 'uWebSockets.js';
 
 export interface Token {
 	id: string;
@@ -9,15 +11,13 @@ export interface Token {
 	expire: number;
 }
 
-export interface ClientState {
+export interface ClientState extends RemoteState {
 	lastMessageTime: number;
 	lastMessageId: number;
 	lastSendTime: number;
-	sentSize: number;
 	token: Token | undefined;
 	ping(): void;
 	client: SocketServerClient;
-	supportsBinary: boolean;
 }
 
 export interface ServerInfo {
@@ -54,12 +54,12 @@ export interface ServerHost {
 export interface GlobalConfig {
 	path?: string;
 	errorHandler?: ErrorHandler;
-	perMessageDeflate?: boolean;
 	compression?: CompressOptions;
 	log?: Logger;
 	errorCode?: number;
 	errorName?: string;
 	nativePing?: number;
+	onClose?: (token: us_listen_socket) => void;
 	port?: number;
 }
 
@@ -73,6 +73,7 @@ export interface InternalServer {
 	tokenInterval: any;
 	totalSent: number;
 	totalReceived: number;
+	batchClient: ClientState | undefined;
 	// options
 	id: string;
 	path: string;
@@ -94,7 +95,7 @@ export interface InternalServer {
 	createClient?: (client: SocketServerClient, send: (data: string | Uint8Array | Buffer) => void) => SocketServerClient;
 	// methods
 	createServer: CreateServerMethod;
-	handleResult: (send: Send, obj: ClientState, funcId: number, funcName: string, funcBinary: boolean, result: Promise<any>, messageId: number) => void;
+	handleResult: (send: Send, obj: ClientState, funcId: number, funcBinary: boolean, result: Promise<any>, messageId: number) => void;
 	packetHandler: PacketHandler;
 	server: Server;
 }
@@ -145,14 +146,12 @@ export interface ServerOptions extends CommonOptions {
 	server?: MethodDef[];
 }
 
-
 type ForceCloseFn = ((force: false, code?: number | undefined, shortMessage?: RecognizedString | undefined) => void);
 type GracefulCloseFn = ((force: true, code?: undefined, shortMessage?: undefined) => void)
 type CloseFn = ((force: boolean, code?: undefined, shortMessage?: undefined) => void);
 
-
-export interface UWSSocketEvents {
-	socket: WebSocket,
+export interface UWSSocketEvents<Y = any> {
+	socket: WebSocket<Y>,
 	onMessage: (message: ArrayBuffer, isBinary: boolean) => void,
 	close: CloseFn & ForceCloseFn & GracefulCloseFn,
 	onClose: (code: number, message: ArrayBuffer) => void,

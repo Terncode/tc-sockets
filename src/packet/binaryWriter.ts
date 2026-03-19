@@ -1,4 +1,6 @@
-import { encodeStringTo, stringLengthInBytes } from '../common/utf8';
+import { encodeStringTo } from '../common/utf8';
+import { StringsDictionary } from '../common/interfaces';
+import { createStringsDictionary } from '../common/utils';
 import { Type, Special, NumberType } from './packetCommon';
 
 export interface BinaryWriter {
@@ -18,15 +20,23 @@ export function writeBoolean(writer: BinaryWriter, value: boolean) {
 
 export function writeString(writer: BinaryWriter, value: string | null) {
 	if (value == null) {
-		writeNullLength(writer);
+		writeUint8(writer, 0xff);
 	} else {
-		writeLength(writer, stringLengthInBytes(value));
 		writeStringValue(writer, value);
 	}
 }
 
+export function writeStringValue(writer: BinaryWriter, value: string) {
+	writer.offset = encodeStringTo(writer.view, writer.offset, value);
+	writeUint8(writer, 0);
+
+	if (writer.offset > writer.view.byteLength) {
+		throw new RangeError('Exceeded DataView size');
+	}
+}
+
 export function writeObject(writer: BinaryWriter, value: any) {
-	writeAny(writer, value, new Map<string, number>());
+	writeAny(writer, value, createStringsDictionary());
 }
 
 export function writeUint8Array(writer: BinaryWriter, value: Uint8Array | null) {
@@ -109,6 +119,43 @@ export function writeLength(writer: BinaryWriter, value: number) {
 	}
 }
 
+export function rewriteLength(writer: BinaryWriter, offset: number, bytes: number, value: number) {
+	value++;
+
+	const currentOffset = writer.offset;
+	writer.offset = offset;
+
+	if (bytes === 1) {
+		writeUint8(writer, value);
+	} else if (bytes === 2) {
+		const a = (value & 0x7f) | 0x80;
+		const b = value >> 7;
+		writeUint16(writer, (b << 8) | a);
+	} else if (bytes === 3) {
+		const a = (value & 0x7f) | 0x80;
+		const b = ((value >> 7) & 0x7f) | 0x80;
+		const c = value >> 14;
+		writeUint8(writer, a);
+		writeUint16(writer, (c << 8) | b);
+	} else if (bytes === 4) {
+		const a = (value & 0x7f) | 0x80;
+		const b = ((value >> 7) & 0x7f) | 0x80;
+		const c = ((value >> 14) & 0x7f) | 0x80;
+		const d = value >> 21;
+		writeUint32(writer, (d << 24) | (c << 16) | (b << 8) | a);
+	} else {
+		const a = (value & 0x7f) | 0x80;
+		const b = ((value >> 7) & 0x7f) | 0x80;
+		const c = ((value >> 14) & 0x7f) | 0x80;
+		const d = ((value >> 21) & 0x7f) | 0x80;
+		const e = value >> 28;
+		writeUint8(writer, a);
+		writeUint32(writer, (e << 24) | (d << 16) | (c << 8) | b);
+	}
+
+	writer.offset = currentOffset;
+}
+
 export function getWriterBuffer({ view, offset }: BinaryWriter) {
 	return new Uint8Array(view.buffer, view.byteOffset, offset);
 }
@@ -117,9 +164,14 @@ export function resetWriter(writer: BinaryWriter) {
 	writer.offset = 0;
 }
 
-export function resizeWriter(writer: BinaryWriter) {
+export function resizeWriter(writer: BinaryWriter, preserveBytes = 0) {
+	const old = writer.view;
 	writer.view = new DataView(new ArrayBuffer(writer.view.byteLength * 2));
 	writer.offset = 0;
+
+	if (preserveBytes) {
+		new Uint8Array(writer.view.buffer).set(new Uint8Array(old.buffer, old.byteOffset, preserveBytes));
+	}
 }
 
 export function writeInt8(writer: BinaryWriter, value: number) {
@@ -212,14 +264,6 @@ export function writeBytes(writer: BinaryWriter, value: Uint8Array) {
 	writer.offset += value.byteLength;
 }
 
-export function writeStringValue(writer: BinaryWriter, value: string) {
-	writer.offset = encodeStringTo(writer.view, writer.offset, value);
-
-	if (writer.offset > writer.view.byteLength) {
-		throw new Error('Exceeded DataView size');
-	}
-}
-
 const floats = new Float32Array(1);
 
 function writeShortLength(writer: BinaryWriter, type: Type, length: number) {
@@ -233,7 +277,7 @@ function writeShortLength(writer: BinaryWriter, type: Type, length: number) {
 	}
 }
 
-export function writeAny(writer: BinaryWriter, value: any, strings: Map<string, number>) {
+export function writeAny(writer: BinaryWriter, value: any, strings: StringsDictionary) {
 	if (value === undefined) {
 		writeUint8(writer, Type.Special | Special.Undefined);
 	} else if (value === null) {
@@ -290,10 +334,9 @@ export function writeAny(writer: BinaryWriter, value: any, strings: Map<string, 
 		if (index !== undefined) {
 			writeShortLength(writer, Type.StringRef, index);
 		} else {
-			const length = stringLengthInBytes(value);
-			writeShortLength(writer, Type.String, length);
+			writeUint8(writer, Type.String);
 			writeStringValue(writer, value);
-			strings.set(value, strings.size);
+			strings.add(value);
 		}
 	} else if (Array.isArray(value)) {
 		const length = value.length;
@@ -312,18 +355,16 @@ export function writeAny(writer: BinaryWriter, value: any, strings: Map<string, 
 
 			for (let i = 0; i < keys.length; i++) {
 				const key = keys[i];
+				if (!key.length) throw new Error('Invalid empty object key');
+
 				const index = strings.get(key);
 
 				if (index === undefined) {
-					writeLength(writer, stringLengthInBytes(key));
-					writeStringValue(writer, key);
-
-					if (key) {
-						strings.set(key, strings.size);
-					}
-				} else {
 					writeLength(writer, 0);
-					writeLength(writer, index);
+					writeStringValue(writer, key);
+					strings.add(key);
+				} else {
+					writeLength(writer, index + 1);
 				}
 
 				writeAny(writer, value[key], strings);

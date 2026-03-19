@@ -10,8 +10,13 @@ import {
 	createServerOptions, optionsWithDefaults, toClientOptions, getQuery, callWithErrorHandling, parseRateLimitDef, getFullUrl,
 } from './serverUtils';
 import { BinaryReader, createBinaryReaderFromBuffer, getBinaryReaderBuffer } from '../packet/binaryReader';
-import { DISABLED, HttpRequest, RecognizedString, SHARED_COMPRESSOR, TemplatedApp, us_listen_socket, us_listen_socket_close, WebSocket } from 'uWebSockets.js';
+import type {
+	HttpRequest, RecognizedString,
+	TemplatedApp, us_listen_socket, WebSocket
+} from 'uWebSockets.js';
 import * as HTTP from 'http';
+
+const strings: string[] = [];
 
 export function createServer<TServer, TClient>(
 	app: TemplatedApp,
@@ -36,7 +41,6 @@ export function createServerRaw(
 			errorHandler,
 			log,
 			port: options.port,
-			perMessageDeflate: options.perMessageDeflate,
 			compression: options.compression,
 		}, customPacketHandlers);
 	const socket = host.socketRaw(createServer, { id: 'socket', ...options });
@@ -49,22 +53,22 @@ export function createServerHost(uwsApp: TemplatedApp, globalConfig: GlobalConfi
 		path = '/ws',
 		log = console.log.bind(console),
 		errorHandler = defaultErrorHandler,
-		perMessageDeflate = true,
 		errorCode = 400,
 		errorName = HTTP.STATUS_CODES[400] as string,
 		nativePing = 0,
+		onClose,
 	} = globalConfig;
 	const servers: InternalServer[] = [];
 
 	let upgradeReq: OriginalRequest | undefined;
-	const connectedSockets = new Map<WebSocket, UWSSocketEvents>();
+	const connectedSockets = new Map<WebSocket<any>, UWSSocketEvents>();
+
 	uwsApp.ws(path, {
-		compression: globalConfig.compression ? globalConfig.compression : (perMessageDeflate ? SHARED_COMPRESSOR : DISABLED),
+		compression: globalConfig.compression,
 		sendPingsAutomatically: !!nativePing,
 		idleTimeout: nativePing ? nativePing : undefined,
 
 		upgrade: (res, req, context) => {
-
 			if (upgradeReq) {
 				res.end(`HTTP/1.1 ${503} ${HTTP.STATUS_CODES[503]}\r\n\r\n`);
 				return;
@@ -186,7 +190,7 @@ export function createServerHost(uwsApp: TemplatedApp, globalConfig: GlobalConfi
 		servers.forEach(closeServer);
 		connectedSockets.forEach((event) => event.close(true));
 		if (socketToken) {
-			us_listen_socket_close(socketToken);
+			onClose?.(socketToken);
 			socketToken = undefined;
 		}
 	}
@@ -266,6 +270,7 @@ function createInternalServer(
 		path: options.path ?? '',
 		hash: options.hash ?? '',
 		debug: !!options.debug,
+		batchClient: undefined,
 		forceBinary: !!options.forceBinary,
 		connectionTokens: !!options.connectionTokens,
 		keepOriginalRequest: !!options.keepOriginalRequest,
@@ -288,15 +293,17 @@ function createInternalServer(
 		tokenInterval: undefined,
 	};
 
-	function handleResult(send: Send, obj: ClientState, funcId: number, funcName: string, funcBinary: boolean, result: Promise<any>, messageId: number) {
+	function handleResult(send: Send, obj: ClientState, funcId: number, funcBinary: boolean, result: Promise<any>, messageId: number) {
+		if (obj.batch) throw new Error('Handling result in the middle of packet batching');
+
 		if (result && typeof result.then === 'function') {
 			result.then(result => {
 				if (!obj.client.isConnected()) return;
 
 				if (funcBinary) {
-					packetHandler.sendBinary(send, `*resolve:${funcName}`, MessageType.Resolved, funcId, messageId, result);
+					packetHandler.sendBinary(send, MessageType.Resolved, funcId, messageId, result);
 				} else {
-					packetHandler.sendString(send, `*resolve:${funcName}`, MessageType.Resolved, funcId, messageId, result);
+					packetHandler.sendString(send, MessageType.Resolved, funcId, messageId, result);
 				}
 			}, (e: Error) => {
 				e = errorHandler.handleRejection(obj.client, e) || e;
@@ -304,9 +311,9 @@ function createInternalServer(
 				if (!obj.client.isConnected()) return;
 
 				if (funcBinary) {
-					packetHandler.sendBinary(send, `*reject:${funcName}`, MessageType.Rejected, funcId, messageId, e ? e.message : 'error');
+					packetHandler.sendBinary(send, MessageType.Rejected, funcId, messageId, e ? e.message : 'error');
 				} else {
-					packetHandler.sendString(send, `*reject:${funcName}`, MessageType.Rejected, funcId, messageId, e ? e.message : 'error');
+					packetHandler.sendString(send, MessageType.Rejected, funcId, messageId, e ? e.message : 'error');
 				}
 			}).catch((e: Error) => errorHandler.handleError(obj.client, e));
 		}
@@ -449,6 +456,7 @@ function connectClient(
 		lastSendTime: Date.now(),
 		sentSize: 0,
 		supportsBinary: !!server.forceBinary || !!(query && query.bin === 'true'),
+		batch: false,
 		token,
 		ping() {
 			socket.send('');
@@ -460,29 +468,55 @@ function connectClient(
 			originalRequest: server.keepOriginalRequest ? originalRequest : undefined,
 			transferLimit: server.transferLimit,
 			backpressureLimit: server.backpressureLimit,
-			isConnected() {
+			isConnected ()
+			{
 				return isConnected;
 			},
-			lastMessageTime() {
+			lastMessageTime ()
+			{
 				return obj.lastMessageTime;
 			},
-			disconnect(force = false, invalidateToken = false, reason = '') {
+			disconnect ( force = false, invalidateToken = false, reason = '' )
+			{
 				isConnected = false;
 
-				if (invalidateToken && obj.token) {
-					if (server.clientsByToken.get(obj.token.id) === obj) {
-						server.clientsByToken.delete(obj.token.id);
+				if ( invalidateToken && obj.token )
+				{
+					if ( server.clientsByToken.get( obj.token.id ) === obj )
+					{
+						server.clientsByToken.delete( obj.token.id );
 					}
 					obj.token = undefined;
 				}
 
-				if (force) {
-					uwsSocketEvents.close(true);
-				} else {
+				if ( force )
+				{
+					uwsSocketEvents.close( true );
+				} else
+				{
 					closeReason = reason;
-					uwsSocketEvents.close(false/* code?, reason*/);
+					uwsSocketEvents.close( false /* code?, reason*/ );
 				}
 			},
+			beginBatch: function (): void
+			{
+				if (server.batchClient) errorHandler.handleError(null, new Error(`Already in batch`));
+				server.batchClient = obj;
+				obj.batch = true;
+			},
+			commitBatch: function (): void
+			{
+				console.log('c');
+				if (!server.batchClient) errorHandler.handleError(null, new Error(`Not in a batch`));
+				if (server.batchClient !== obj) errorHandler.handleError(null, new Error(`Incorrect client for batch`));
+
+				try {
+					server.packetHandler.commitBatch(send, obj);
+				} finally {
+					server.batchClient = undefined;
+					obj.batch = false;
+				}
+			}
 		}, send),
 	};
 
@@ -515,8 +549,8 @@ function connectClient(
 		obj.lastSendTime = Date.now();
 	}
 
-	const handleResult2: HandleResult = (funcId, funcName, funcBinary, result, messageId) => {
-		handleResult(send, obj, funcId, funcName, funcBinary, result, messageId);
+	const handleResult2: HandleResult = (funcId, funcBinary, result, messageId) => {
+		handleResult(send, obj, funcId, funcBinary, result, messageId);
 	};
 
 	function serverActionsCreated(serverActions: SocketServer) {
@@ -564,33 +598,38 @@ function connectClient(
 
 				obj.lastMessageTime = Date.now();
 				obj.supportsBinary = obj.supportsBinary || !!(isBinary);
-
-				if (reader || data) {
-					obj.lastMessageId++;
-					const messageId = obj.lastMessageId;
-
+				if (reader) {
 					try {
-						// TODO: options.onPacket?.(obj.client)
-
-						if (data !== undefined) {
-							server.packetHandler.recvString(data, serverActions, {}, (funcId, funcName, func, funcObj, args) => {
-								const rate = server.rateLimits[funcId];
-								const funcBinary = server.resultBinary[funcId];
-
-								// TODO: move rate limits to packet handler
-								if (checkRateLimit2(funcId, callsList, server.rateLimits)) {
-									handleResult(send, obj, funcId, funcName, funcBinary, func.apply(funcObj, args), messageId);
-								} else if (rate && rate.promise) {
-									handleResult(send, obj, funcId, funcName, funcBinary, Promise.reject(new Error('Rate limit exceeded')), messageId);
-								} else {
-									throw new Error(`Rate limit exceeded (${funcName})`);
-								}
-							});
-						} else {
-							server.packetHandler.recvBinary(reader!, serverActions, {}, callsList, messageId, handleResult2);
+						while (reader.offset < reader.view.byteLength) { // read batch of packets
+							try {
+								obj.lastMessageId++;
+								server.packetHandler.recvBinary(reader, serverActions, {}, callsList, obj.lastMessageId, strings, handleResult2);
+							} catch (e) {
+								errorHandler.handleRecvError(obj.client, e, getBinaryReaderBuffer(reader));
+							}
 						}
+					} finally {
+						strings.length = 0;
+					}
+				} else if (data) {
+					try {
+						obj.lastMessageId++;
+						const messageId = obj.lastMessageId;
+						server.packetHandler.recvString(data, serverActions, {}, (funcId, func, funcObj, args) => {
+							const rate = server.rateLimits[funcId];
+							const funcBinary = server.resultBinary[funcId];
+
+							// TODO: move rate limits to packet handler
+							if (checkRateLimit2(funcId, callsList, server.rateLimits)) {
+								handleResult(send, obj, funcId, funcBinary, func.apply(funcObj, args), messageId);
+							} else if (rate && rate.promise) {
+								handleResult(send, obj, funcId, funcBinary, Promise.reject(new Error('Rate limit exceeded')), messageId);
+							} else {
+								throw new Error(`Rate limit exceeded (${funcId})`);
+							}
+						});
 					} catch (e) {
-						errorHandler.handleRecvError(obj.client, e, reader ? getBinaryReaderBuffer(reader) : data!);
+						errorHandler.handleRecvError(obj.client, e, data);
 					}
 				}
 
@@ -607,7 +646,7 @@ function connectClient(
 
 		if (server.debug) log('client connected');
 
-		server.packetHandler.sendString(send, '*version', MessageType.Version, 0, 0, server.hash);
+		server.packetHandler.sendString(send, MessageType.Version, 0, 0, server.hash);
 		server.clients.push(obj);
 
 		if (serverActions.connected) {

@@ -8,3 +8,4 @@ export * from './common/method';
 export * from './server/serverMethod';
 export * from './packet/binaryReader';
 export * from './packet/binaryWriter';
+export { createStringsDictionary } from './utils';

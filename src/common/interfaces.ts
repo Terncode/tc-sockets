@@ -29,6 +29,7 @@ export interface SocketService<TClient extends SocketClient, TServer extends Soc
 	lastPacket: number;
 	isConnected: boolean;
 	supportsBinary: boolean;
+	batch: boolean;
 	options: ClientOptions;
 	connect(): void;
 	disconnect(): void;
@@ -54,8 +55,10 @@ export enum Bin {
 	DataViewOffsetLength,
 }
 
-export type BinaryDef = (Bin | (Bin | (Bin | any[]))[])[];
+export type BinaryDefItem = Bin | { [key: string]: BinaryDefItem; } | BinaryDefItem[];
+export type BinaryDef = BinaryDefItem[];
 export type MethodDef = string | [string, MethodOptions];
+export type RateLimits = (RateLimit | undefined)[]
 
 export interface MethodOptions {
 	/** binary definition of the packet */
@@ -153,4 +156,10 @@ export interface RateLimit {
 	promise?: boolean;
 }
 
-export type RateLimits = (RateLimit | undefined)[];
+export interface StringsDictionary {
+	get(value: string): number | undefined;
+	add(value: string): void;
+	size(): number;
+	clear(): void;
+	trimTo(size: number): void;
+}

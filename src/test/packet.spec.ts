@@ -1,7 +1,7 @@
 import './common';
 import { expect } from 'chai';
 import { assert, spy, stub } from 'sinon';
-import { MessageType, PacketHandler, createPacketHandler } from '../packet/packetHandler';
+import { MessageType, PacketHandler, RemoteState, createPacketHandler } from '../packet/packetHandler';
 import { Bin } from '../common/interfaces';
 import { createBinaryReader } from '../packet/binaryReader';
 import { NumberType, Type } from '../packet/packetCommon';
@@ -27,25 +27,25 @@ import { createCodeGenHandlers } from '../codeGenHandler';
 				it('sends message to websocket', () => {
 					const send = spy();
 
-					handler.sendString(send, 'foo', 1, 69, 420, 'xyz');
+					handler.sendString(send, 1, 69, 420, 'xyz');
 
 					assert.calledWith(send, '[1,69,420,"xyz"]');
 				});
 
 				it('returns message length', () => {
-					expect(handler.sendString(spy(), 'foo', 1, 69, 420, 'xyz')).equal('[1,69,420,"xyz"]'.length);
+					expect(handler.sendString(spy(), 1, 69, 420, 'xyz')).equal('[1,69,420,"xyz"]'.length);
 				});
 
 				it('returns 0 on error', () => {
 					const send = stub().throws(new Error(''));
 
-					expect(handler.sendString(send, 'foo', 1, 69, 420, 'xyz')).equal(0);
+					expect(handler.sendString(send, 1, 69, 420, 'xyz')).equal(0);
 				});
 
 				it('sends binary message', () => {
 					const send = spy();
 					const remote: any = {};
-					handler.createRemote(remote, send, { sentSize: 0, supportsBinary: true });
+					handler.createRemote(remote, send, { sentSize: 0, supportsBinary: true, batch: false });
 
 					remote.bar(8);
 
@@ -54,7 +54,7 @@ import { createCodeGenHandlers } from '../codeGenHandler';
 				});
 
 				it('returns sent size (string)', () => {
-					const size = handler.sendString(spy(), 'bar', 1, 69, 420, 'xyz');
+					const size = handler.sendString(spy(), 1, 69, 420, 'xyz');
 
 					expect(size).equal('[1,69,420,"xyz"]'.length);
 				});
@@ -62,7 +62,7 @@ import { createCodeGenHandlers } from '../codeGenHandler';
 				it('increments sent size (binary)', () => {
 					const send = spy();
 					const remote: any = {};
-					const state = { sentSize: 0, supportsBinary: true };
+					const state: RemoteState = { sentSize: 0, supportsBinary: true, batch: false };
 					handler.createRemote(remote, send, state);
 
 					remote.bar(8);
@@ -110,7 +110,7 @@ import { createCodeGenHandlers } from '../codeGenHandler';
 					]);
 					const reader = createBinaryReader(buffer);
 
-					handler.recvBinary(reader, funcs, special, [], 0);
+					handler.recvBinary(reader, funcs, special, [], 0, []);
 
 					assert.calledWith(VERSION, 123);
 				});
@@ -133,7 +133,7 @@ import { createCodeGenHandlers } from '../codeGenHandler';
 					]);
 					const reader = createBinaryReader(buffer);
 
-					handler.recvBinary(reader, funcs, special, [], 0);
+					handler.recvBinary(reader, funcs, special, [], 0, []);
 
 					assert.calledWith(barResolved, 123, 125);
 				});
@@ -156,7 +156,7 @@ import { createCodeGenHandlers } from '../codeGenHandler';
 					]);
 					const reader = createBinaryReader(buffer);
 
-					handler.recvBinary(reader, funcs, special, [], 0);
+					handler.recvBinary(reader, funcs, special, [], 0, []);
 
 					assert.calledWith(barRejected, 123, 125);
 				});
@@ -168,13 +168,13 @@ import { createCodeGenHandlers } from '../codeGenHandler';
 				it('reads binary message from websocket', () => {
 					const foo = stub();
 
-					handler.recvBinary(createBinaryReader(new Uint8Array([1, 8])), { foo }, {}, [], 1);
+					handler.recvBinary(createBinaryReader(new Uint8Array([1, 8])), { foo }, {}, [], 1, []);
 
 					assert.calledWith(foo, 8);
 				});
 
 				it('throws if binary handler is missing', () => {
-					expect(() => handler.recvBinary(createBinaryReader(new Uint8Array([2, 8])), {}, {}, [], 1))
+					expect(() => handler.recvBinary(createBinaryReader(new Uint8Array([2, 8])), {}, {}, [], 1, []))
 						.throw('Missing binary decoder for: abc (2)');
 				});
 
@@ -184,10 +184,9 @@ import { createCodeGenHandlers } from '../codeGenHandler';
 
 					handler.recvString('[1,"abc"]', funcs, special, handleResult);
 
-					assert.calledWithMatch(handleResult, 1, 'foo', funcs.foo, funcs, ['abc']);
+					assert.calledWithMatch(handleResult, 1, funcs.foo, funcs, ['abc']);
 				});
 			});
 		});
 	});
 });
-
