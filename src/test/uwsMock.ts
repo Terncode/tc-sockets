@@ -1,11 +1,14 @@
 import { stub } from 'sinon';
 
-import { TemplatedApp, WebSocketBehavior, HttpResponse, HttpRequest, us_socket_context_t, WebSocket, RecognizedString } from 'uWebSockets.js';
+import {
+	TemplatedApp, WebSocketBehavior, HttpResponse, HttpRequest,
+	us_socket_context_t, WebSocket, RecognizedString
+} from 'uWebSockets.js';
 import { queryString } from '../common/utils';
 const noop = (..._args: any): any => {};
 
 
-let lastBehavior: WebSocketBehavior;
+let lastBehavior: WebSocketBehavior<any>;
 export function MockApp(): TemplatedApp {
 	const mock: Partial<TemplatedApp> = {
 		ws: (_pattern, behavior) => {
@@ -20,7 +23,7 @@ export function MockApp(): TemplatedApp {
 }
 
 
-export class MockWebSocket implements WebSocket {
+export class MockWebSocket implements WebSocket<any> {
 	send(_message: RecognizedString, _isBinary?: boolean, _compress?: boolean) {
 		return 1;
 	}
@@ -50,6 +53,10 @@ export class MockWebSocket implements WebSocket {
 	cork(_cb: () => void) {
 		return this;
 	}
+	getUserData ()
+	{
+		return {};
+	}
 	getRemoteAddress() {
 		return new ArrayBuffer(0);
 	}
@@ -67,7 +74,7 @@ export function getLastBehavior() {
 	return lastBehavior;
 }
 
-export function createUpgrade(onUpgrade?: (ws: WebSocket) => void, ws = new MockWebSocket(), bin = false, t?: string) {
+export function createUpgrade(onUpgrade?: (ws: WebSocket<any>) => void, ws = new MockWebSocket(), bin = false, t?: string) {
 	const res: HttpResponse = {
 		close: noop,
 		cork: noop,
@@ -81,7 +88,15 @@ export function createUpgrade(onUpgrade?: (ws: WebSocket) => void, ws = new Mock
 		onData: noop,
 		onWritable: noop,
 		tryEnd: noop,
-		upgrade: (_userData: any, _secWebSocketKey: RecognizedString, _secWebSocketProtocol: RecognizedString, _secWebSocketExtensions: RecognizedString, _context: us_socket_context_t) => {
+		pause: noop,
+		resume: noop,
+		upgrade: (
+			_userData: any,
+			_secWebSocketKey: RecognizedString,
+			_secWebSocketProtocol: RecognizedString,
+			_secWebSocketExtensions: RecognizedString,
+			_context: us_socket_context_t
+		) => {
 			if (onUpgrade) {
 				onUpgrade(ws);
 			}
@@ -98,6 +113,7 @@ export function createUpgrade(onUpgrade?: (ws: WebSocket) => void, ws = new Mock
 			];
 			headers.forEach(header => cb(header.key, header.value));
 		},
+		getCaseSensitiveMethod: noop,
 		getHeader: noop,
 		getMethod: noop,
 		getParameter: noop,
@@ -116,7 +132,7 @@ export function createUpgrade(onUpgrade?: (ws: WebSocket) => void, ws = new Mock
 }
 
 export function connectClient(bin?: boolean, t?: string | undefined) {
-	return new Promise<WebSocket>(r => {
+	return new Promise<WebSocket<any>>(r => {
 		const behavior = getLastBehavior();
 		const { res, req, context } = createUpgrade(ws => {
 			r(ws);

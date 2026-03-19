@@ -5,7 +5,7 @@ import { OriginalRequest, ErrorHandler } from './server';
 import { getMethods } from '../common/method';
 import { MethodDef, MethodOptions, ClientOptions, RateLimitDef, RateLimit } from '../common/interfaces';
 import { getSocketMetadata } from './serverMethod';
-import { HttpRequest } from 'uWebSockets.js';
+import type { HttpRequest } from 'uWebSockets.js';
 
 const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_';
 

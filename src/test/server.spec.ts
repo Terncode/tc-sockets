@@ -425,12 +425,12 @@ function withoutUndefinedProperties(obj: any) {
 					onServer = s => servers.push(s);
 					onSend = stub();
 					onRecv = stub();
-					serverHost = createServerHost(uwsApp, { path: '/test', perMessageDeflate: false, errorHandler });
+					serverHost = createServerHost(uwsApp, { path: '/test', errorHandler });
 					serverHost.socket(Server1, Client1, client => {
 						const s = new Server1(client);
 						onServer(s);
 						return s;
-					}, { path: '/test', perMessageDeflate: false, onSend, onRecv, development: true, hash: '123' });
+					}, { path: '/test', onSend, onRecv, development: true, hash: '123' });
 					//server = getLastMockApp();
 				});
 

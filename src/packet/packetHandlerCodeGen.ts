@@ -1,6 +1,6 @@
 // code generation
 
-import { MethodDef, OnRecv, Bin, RemoteOptions } from '../common/interfaces';
+import { MethodDef, OnRecv, Bin, RemoteOptions, BinaryDefItem, StringsDictionary } from '../common/interfaces';
 import { parseRateLimit, checkRateLimit3, isBinaryOnlyPacket } from '../common/utils';
 import {
 	writeUint8, writeInt16, writeUint16, writeUint32, writeInt32, writeFloat64, writeFloat32, writeBoolean,
@@ -80,22 +80,21 @@ export interface CodeGenOptions {
 interface HandlerOptionsCodeGen extends HandlerOptions, CodeGenOptions {}
 
 type CreateRemoteHandler = (
-	remote: any, send: Send, state: RemoteState, options: RemoteOptions, writerMethods: any, writer: BinaryWriter,
+	remote: any, send: Send, state: RemoteState, options: RemoteOptions,
+	writerMethods: any, writer: BinaryWriter, strings: StringsDictionary
 ) => any;
 
-
 type LocalHandler = (
-	reader: BinaryReader, actions: any, specialActions: any, callsList: number[], messageId: number, handleResult?: HandleResult
+	reader: BinaryReader, actions: any, specialActions: any,
+	callsList: number[], messageId: number, strings: string[], handleResult?: HandleResult
 ) => void;
 
 export function generateLocalHandlerCode(
 	methods: MethodDef[], remoteNames: string[], { debug, printGeneratedCode, useBinaryByDefault, useBinaryResultByDefault }: HandlerOptionsCodeGen, onRecv: OnRecv
 ): LocalHandler  {
-	let code = ``;
-	code += `var strings = [];\n`;
+let code = ``;
 	code += `${Object.keys(readerMethods).map(key => `  var ${key} = methods.${key};`).join('\n')}\n\n`;
-	code += `  return function (reader, actions, special, callsList, messageId, handleResult) {\n`;
-	code += `    strings.length = 0;\n`;
+	code += `  return function (reader, actions, special, callsList, messageId, strings, handleResult) {\n`;
 	code += `    var packetId = readUint8(reader);\n`;
 	code += `    switch (packetId) {\n`;
 
@@ -110,20 +109,22 @@ export function generateLocalHandlerCode(
 		code += `      case ${packetId}: {\n`;
 
 		if (options.binary || useBinaryByDefault) {
+			code += `        try {\n`;
+
 			if (options.rateLimit || options.serverRateLimit) {
 				const { limit, frame } = options.serverRateLimit ? parseRateLimit(options.serverRateLimit, false) : parseRateLimit(options.rateLimit!, true);
 
 				code += `        if (!checkRateLimit(${packetId}, callsList, ${limit}, ${frame})) `;
 
 				if (options.promise) {
-					code += `handleResult(${packetId}, '${name}', ${binaryResult ? 'true' : 'false'}, Promise.reject(new Error('Rate limit exceeded')), messageId);\n`;
+					code += `handleResult(${packetId}, ${binaryResult ? 'true' : 'false'}, Promise.reject(new Error('Rate limit exceeded')), messageId);\n`;
 				} else {
 					code += `throw new Error('Rate limit exceeded (${name})');\n`;
 				}
 			}
 
 			if (options.binary) {
-				code += createReadFunction(options.binary, '        ');
+				code += createReadFunction(options.binary, '          ');
 
 				for (let i = 0, j = 0; i < options.binary.length; i++, j++) {
 					if (options.binary[i] === Bin.U8ArrayOffsetLength || options.binary[i] === Bin.DataViewOffsetLength) {
@@ -132,9 +133,15 @@ export function generateLocalHandlerCode(
 					args.push(j);
 				}
 			} else {
-				code += createReadFunction([Bin.Obj], '        ');
+				code += createReadFunction([Bin.Obj], '          ');
 				args.push(0);
 			}
+
+			// skip to end if we failed to decode so we don't try to decode more packets
+			code += `        } catch (e) {\n`;
+			code += `          reader.offset = reader.view.byteLength;\n`;
+			code += `          throw e;\n`;
+			code += `        }\n`;
 
 			const argList = args.map(i => `a${i}`).join(', ');
 
@@ -142,13 +149,13 @@ export function generateLocalHandlerCode(
 				code += `        console.log('RECV [' + reader.view.byteLength + '] (bin)', '${name}', [${argList}]);\n`;
 			}
 
-			code += `        onRecv(${packetId}, '${name}', reader.view.byteLength, true, reader.view, actions);\n`;
+			code += `        onRecv(${packetId}, reader.view.byteLength, true, reader.view, actions);\n`;
 
 			const call = options.binary ? `actions.${name}(${argList})` : `actions.${name}.apply(actions, ${argList})`;
 
 			if (options.promise) {
 				code += `        var result = ${call};\n`;
-				code += `        handleResult(${packetId}, '${name}', ${binaryResult ? 'true' : 'false'}, result, messageId);\n`;
+				code += `        handleResult(${packetId}, ${binaryResult ? 'true' : 'false'}, result, messageId);\n`;
 			} else {
 				code += `        ${call};\n`;
 			}
@@ -200,8 +207,7 @@ export function generateRemoteHandlerCode(methods: MethodDef[], handlerOptions: 
 	let code = ``;
 	code += `${Object.keys(writerMethods).map(key => `  var ${key} = methods.${key};`).join('\n')}\n`;
 	code += `  var log = remoteOptions.log || function () {};\n`;
-	code += `  var onSend = remoteOptions.onSend || function () {};\n`;
-	code += `  var strings = new Map();\n\n`;
+	code += `  var onSend = remoteOptions.onSend || function () {};\n\n`;
 
 	let packetId = 0;
 	const bufferCtor = handlerOptions.useBuffer ? 'Buffer.from' : 'new Uint8Array';
@@ -210,7 +216,7 @@ export function generateRemoteHandlerCode(methods: MethodDef[], handlerOptions: 
 	for (const method of methods) {
 		const name = typeof method === 'string' ? method : method[0];
 		const options = typeof method === 'string' ? {} : method[1];
-		const args = [];
+		let args = [];
 
 		if (options.binary) {
 			for (let i = 0, j = 0; i < options.binary.length; i++) {
@@ -230,20 +236,41 @@ export function generateRemoteHandlerCode(methods: MethodDef[], handlerOptions: 
 			code += `    try {\n`;
 		}
 
-		const space = handlerOptions.debug ? '  ' : '  ';
-		const indent = options.binary ? space.repeat(3) : space;
+		const indent = options.binary ? `      ` : `    `;
 
 		if (options.binary || handlerOptions.useBinaryByDefault) {
 			code += `${indent}if (remoteState.supportsBinary) {\n`;
-			code += `${indent}  while (true) {\n`;
-			code += `${indent}    try {\n`;
-			code += `${indent}      strings.clear();\n`;
-			code += `${indent}      writer.offset = 0;\n`;
+			code += `${indent}  try {\n`;
+			code += `${indent}    var stringsSize = strings.size();`;
+			code += `${indent}    var writerOffset = writer.offset;`;
+			code += `${indent}    while (true) {\n`;
+			code += `${indent}      try {\n`;
+			code += `${indent}        strings.trimTo(stringsSize);\n`; // reset to previous string list if we failed to write packet
+			code += `${indent}        writer.offset = writerOffset;\n`; // reset to start in case we failed to write packet
+
 			if (!options.binary) {
-				code += `${indent}      var a0 = [];\n`;
-				code += `${indent}      for (var i = 0; i < arguments.length; i++) a0.push(arguments[i]);\n`;
+				code += `${indent}        var a0 = [];\n`;
+				code += `${indent}        for (var i = 0; i < arguments.length; i++) a0.push(arguments[i]);\n`;
 			}
+
 			code += createWriteFunction(packetId, options.binary ?? [Bin.Obj], `${indent}      `);
+
+			code += `${indent}        break;\n`;
+			code += `${indent}      } catch (e) {\n`;
+			code += `${indent}        if (isSizeError(e)) {\n`;
+			code += `${indent}          resizeWriter(writer, writerOffset);\n`;
+			code += `${indent}        } else {\n`;
+
+			if (catchError) {
+				code += `${indent}          return false;\n`;
+			} else {
+				code += `${indent}          throw e;\n`;
+			}
+
+			code += `${indent}        }\n`;
+			code += `${indent}      }\n`;
+			code += `${indent}    }\n`;
+			code += `${indent}    if (!remoteState.batch) {\n`;
 			code += `${indent}      var buffer = ${bufferCtor}(writer.view.buffer, writer.view.byteOffset, writer.offset);\n`;
 			code += `${indent}      send(buffer);\n`;
 			code += `${indent}      remoteState.sentSize += buffer.${bufferLength};\n`; // TODO: move from here, just count in send function
@@ -253,19 +280,11 @@ export function generateRemoteHandlerCode(methods: MethodDef[], handlerOptions: 
 				code += `${indent}      log('SEND [' + buffer.${bufferLength} + '] (bin) "${name}"', arguments);\n`;
 			}
 
-			code += `${indent}      break;\n`;
-			code += `${indent}    } catch (e) {\n`;
-			code += `${indent}      if (isSizeError(e)) {\n`;
-			code += `${indent}        resizeWriter(writer);\n`;
-			code += `${indent}      } else {\n`;
-
-			if (catchError) {
-				code += `${indent}        return false;\n`;
-			} else {
-				code += `${indent}        throw e;\n`;
-			}
-
-			code += `${indent}      }\n`;
+			code += `${indent}    }\n`;
+			code += `${indent}  } finally {\n`;
+			code += `${indent}    if (!remoteState.batch) {\n`;
+			code += `${indent}      strings.clear();\n`;
+			code += `${indent}      writer.offset = 0;\n`;
 			code += `${indent}    }\n`;
 			code += `${indent}  }\n`;
 			code += `${indent}} else {\n`;
@@ -303,15 +322,15 @@ export function generateRemoteHandlerCode(methods: MethodDef[], handlerOptions: 
 	}
 
 	if (handlerOptions.printGeneratedCode) {
-		console.log(`\n\nfunction createSendHandler(remote, send, removeState, remoteOptions, methods, writer) {\n${code}}\n`);
+		console.log(`\n\nfunction createSendHandler(remote, send, removeState, remoteOptions, methods, writer, strings) {\n${code}}\n`);
 	}
 
-	return new Function('remote', 'send', 'remoteState', 'remoteOptions', 'methods', 'writer', code) as any;
+	return new Function('remote', 'send', 'remoteState', 'remoteOptions', 'methods', 'writer', 'strings', code) as any;
 }
 
 let id = 0;
 
-function writeField(f: Bin | any[], n: string, indent: string) {
+function writeField(f: BinaryDefItem, n: string, indent: string) {
 	if (Array.isArray(f)) {
 		const thisId = ++id;
 		const it = `i${thisId}`;
@@ -334,6 +353,18 @@ function writeField(f: Bin | any[], n: string, indent: string) {
 
 		code += `${indent}  }\n`;
 		code += `${indent}}\n`;
+		return code;
+	} else if (typeof f === 'object') {
+		const thisId = ++id;
+		const object = `object${thisId}`;
+		let code = '';
+
+		code += `${indent}var ${object} = ${n};\n`;
+
+		for (const key of Object.keys(f).sort()) {
+			code += writeField(f[key], `${object}.${key}`, indent);
+		}
+
 		return code;
 	} else {
 		return `${indent}write${binaryNames[f]}(writer, ${n}${f === Bin.Obj ? ', strings' : ''});\n`;
@@ -358,7 +389,7 @@ function createWriteFunction(id: number, fields: any[], indent: string) {
 	return code;
 }
 
-function readField(f: Bin | any[], indent: string) {
+function readField(f: BinaryDefItem, indent: string) {
 	if (f instanceof Array) {
 		let code = '';
 
@@ -375,6 +406,12 @@ function readField(f: Bin | any[], indent: string) {
 		}
 
 		return `readArray(reader, function (reader) { return ${code.trim()}; })`;
+	} else if (typeof f === 'object') {
+		let code = `{\n`;
+		for (const key of Object.keys(f).sort()) {
+			code += `${indent}  ${key}: ${readField(f[key], indent + '  ')},\n`;
+		}
+		return `${code}${indent}}`;
 	} else {
 		return `read${binaryNames[f]}(reader${f === Bin.Obj ? ', strings, false' : ''})`;
 	}
